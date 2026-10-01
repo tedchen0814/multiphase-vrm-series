@@ -1,0 +1,248 @@
+<!--#TITLE-->
+筆電要幾相：相數計算器
+<!--#H1-->
+45W／28W 要幾相
+<!--#H1_EN-->
+Phase count from Icc_max, thermal current and power-stage rating
+<!--#CHIP-->
+N <span>=</span> ⌈I／I<sub>ph</sub>⌉
+<!--#LEDE-->
+<p class="lede">相數不是看 TDP（Thermal Design Power，熱設計功耗），而是看電源軌的最大電流 Icc_max（Maximum Core Current）、長時間電流，以及每相能承受多少電流與發熱。這一頁用 Intel Alder Lake／Raptor Lake 的公開 VR 參數當起點，同時檢查三個條件——每相熱設計電流、功率級峰值電流、長時間每相損耗——推出 Core（IA）與內顯（GT）各要幾相，以及控制器要寫成「4+2」還是「6+2」。
+  <span class="en">Phase count follows the rail's Icc_max and sustained current, not TDP. Starting from public Alder Lake / Raptor Lake VR parameters, three checks give the Core and GT phase counts and the controller configuration.</span></p>
+<!--#STYLE-->
+.board{display:flex;flex-wrap:wrap;gap:10px;align-items:stretch}
+.board .ctrl{border:2px solid var(--ink);border-radius:10px;padding:8px 12px;font-weight:800;display:flex;flex-direction:column;justify-content:center;min-width:120px;background:var(--paper-2)}
+.board .ctrl small{font-weight:500;color:var(--muted);font-size:12px}
+.board .rail{display:flex;flex-direction:column;gap:6px;border:1.5px dashed var(--c);border-radius:10px;padding:8px}
+.board .rail h4{margin:0;font-size:13px;color:var(--c)}
+.board .stages{display:flex;flex-wrap:wrap;gap:6px}
+.board .stg{width:46px;height:46px;border-radius:8px;background:var(--c);color:#fff;display:grid;place-items:center;font:700 11px var(--mono);text-align:center;line-height:1.1}
+.board .stg.pair{width:46px;height:22px}
+.board .pairbox{display:flex;flex-direction:column;gap:2px}
+<!--#BODY-->
+  <section class="panel" aria-labelledby="h-param">
+    <h2 id="h-param"><span class="step">1</span>設定 <span class="en">Inputs</span></h2>
+    <div class="presets" id="presets" style="margin-top:0"><span>平台起點（coreboot 公開值）：</span></div>
+    <div class="grid-2" style="margin-top:12px">
+      <div>
+        <div class="grp-title">電源軌需求 Rail requirements</div><div class="params compact" id="pRail"></div>
+      </div>
+      <div>
+        <div class="grp-title">設計限制 Design limits</div><div class="params compact" id="pLim"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="panel" aria-labelledby="h-res">
+      <h2 id="h-res"><span class="step">2</span>建議相數 <span class="en">Recommended phases</span></h2>
+      <div class="badges" id="badges"></div>
+      <div class="bigres" id="bigres"></div>
+      <div class="board" id="board"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-why">
+      <h2 id="h-why"><span class="step">3</span>三個條件怎麼算 <span class="en">The three checks per rail</span></h2>
+      <div class="scroll-x"><table class="tbl" id="tblChk"></table></div>
+      <p class="lede" style="margin-top:8px">三個條件取最大值就是建議相數。熱設計電流通常是最主要的限制；功率級的標稱電流是理想散熱下的極限，只用來檢查峰值；長時間損耗則看散熱設計能帶走多少瓦。
+        <span class="en">Take the largest of the three. Thermal current usually dominates; the stage rating only checks the peak.</span></p>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-sweep">
+    <h2 id="h-sweep"><span class="step">4</span>Core 軌相數取捨 <span class="en">Core rail: per-phase current and sustained loss vs N</span></h2>
+    <div class="chart-wrap"><svg id="cSweep" class="chart" role="img" aria-label="Core 軌各相數的每相電流與每相損耗"></svg></div>
+    <div class="mini-legend"><span><i style="color:var(--p1)"></i>Icc_max 時每相峰值電流（左軸）</span><span><i class="dash" style="color:var(--p1)"></i>每相熱設計電流</span><span><i style="color:var(--p2)"></i>長時間每相損耗（右軸）</span><span><i class="dash" style="color:var(--p2)"></i>每相允許損耗</span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-tbl">
+    <h2 id="h-tbl"><span class="step">5</span>各平台一覽 <span class="en">All public platform values with the current limits</span></h2>
+    <div class="scroll-x"><table class="tbl" id="tblPlat"></table></div>
+    <p class="lede" style="margin-top:8px">Icc_max 與 load-line 來源：開源韌體 coreboot <code>src/soc/intel/alderlake/vr_config.c</code> 收錄的 Intel 參考預設值（OEM 可以調整）〔已查證〕。建議相數依上方「設計限制」即時計算，長時間電流以 Icc_max × 上方比例估算。
+      <span class="en">Icc_max and load-line from coreboot's Alder Lake VR defaults; phase counts follow the limits above.</span></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-dbl">
+    <h2 id="h-dbl"><span class="step">6</span>桌機板的「16+2 相」是怎麼回事 <span class="en">Controller phases vs power stages</span></h2>
+    <div class="ctl-row"><span class="lab">接法 Topology</span>
+      <div class="seg" id="segDbl" role="group" aria-label="接法"><button type="button" data-v="direct">直接（1 PWM → 1 功率級）</button><button type="button" data-v="doubler">Phase Doubler</button><button type="button" data-v="teamed">Teamed（並聯）</button></div>
+    </div>
+    <div class="grid-2">
+      <div class="board" id="dblBoard"></div>
+      <div class="bigres" id="dblRes" style="margin:0"></div>
+    </div>
+    <p class="lede" style="margin-top:10px"><b>Phase Doubler</b>：一路 PWM 交給倍相器輪流分給兩組功率級，每組只在每兩個週期導通一次，漣波頻率維持控制器的 N·f<sub>sw</sub>，但每組功率級的開關頻率減半、電流減半。<b>Teamed／並聯</b>：一路 PWM 同時驅動兩組功率級，兩組一起開關，電流減半但沒有額外的交錯。兩種接法的功率級數量都是控制器相數的兩倍，所以「16 相」可能只是 8 相控制器。看規格時要分清「控制器相數」與「功率級數量」。
+      <span class="en">A doubler alternates one PWM between two stages (half frequency each); teamed stages switch together. Either way the stage count is twice the controller phase count.</span></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-notes">
+    <h2 id="h-notes"><span class="step">7</span>重點與原稿修正 <span class="en">Key points and corrections</span></h2>
+    <div class="note-key"><span><span class="src ver">已查證</span> 有公開資料佐證</span><span><span class="src add">補充</span> 一般電源設計知識整理</span><span><span class="src pdf">修正</span> 修正原稿說法</span></div>
+    <div class="ngroups">
+      <div class="ngroup" style="--c:var(--p1)">
+        <h3>對照原稿 <span class="en">Versus the original notes</span></h3>
+        <ul>
+          <li><b>45W 的 Icc_max</b><span class="src pdf">修正</span><br>原稿估「110–150 A」；公開值為 120–160 A（RPL-P 45W 為 160 A）。用每相 25 A 推算約 6–7 相，原稿「多數 4–5 相」偏保守，160 A 的 SKU 要 6 相左右，或讓每相分到更多電流。<span class="en">Public 45W values reach 160 A, needing about 6 phases.</span></li>
+          <li><b>28W 的 Icc_max</b><span class="src ver">已查證</span><br>原稿估「80–110 A」，與公開值 85–109 A（RPL-P 28W 為 102 A）吻合，4–5 相。<span class="en">28W values match: 85–109 A, 4–5 phases.</span></li>
+          <li><b>內顯 GT</b><span class="src ver">已查證</span><br>ADL／RPL 的 GT Icc_max：28W／45W 為 55 A、15W 為 40 A。每相抓 25 A 時 55 A 要 3 相，抓 28 A 以上就是 2 相；GT 的長時間電流通常比 Core 低，可以讓每相分到較多電流。原稿「2–3 相」合理。Meteor Lake Arc 內顯的 GT Icc_max 公開資料查不到。<span class="en">GT is 55 A (40 A at 15W): 2–3 phases depending on the per-phase current.</span></li>
+        </ul>
+      </div>
+      <div class="ngroup" style="--c:var(--ok)">
+        <h3>控制器配置 <span class="en">Controller configuration</span></h3>
+        <ul>
+          <li><b>「4+2」怎麼讀</b><span class="src add">補充</span><br>前面是 Core 軌相數、後面是 GT 軌；第三軌 SA（System Agent）有時由同一顆控制器提供（寫成 4+2+1），VCCIN_AUX 通常是另一顆獨立 Buck。<span class="en">Core + GT (+ SA); VCCIN_AUX is usually a separate buck.</span></li>
+          <li><b>實際控制器例子</b><span class="src ver">已查證</span><br>Richtek RT3628AE：雙軌、合計 1–8 相、IMVP9.1；Richtek RT3638AE：8 相 VCCCORE＋單相 VCCGT＋單相 VCCSA、IMVP9.2；Renesas ISL95869：IMVP9、最多 3 相；AOS AOZ71026QI：6 相、IMVP8／9／9.1／9.2。選型以最新規格書為準。<span class="en">Examples from vendor pages; check current datasheets.</span></li>
+        </ul>
+      </div>
+      <div class="ngroup" style="--c:var(--p4)">
+        <h3>設計時還要看 <span class="en">Also consider</span></h3>
+        <ul>
+          <li><b>每相熱設計電流</b><span class="src add">補充</span><br>筆電 DrMOS 標稱 40–70 A，但狹窄空間與有限風道下，效率與溫升的甜蜜點常在 20–30 A；散熱好的桌機與伺服器可以拉高。<span class="en">Notebooks typically plan 20–30 A per phase.</span></li>
+          <li><b>相數多不一定好</b><span class="src add">補充</span><br>每多一相就多一組功率級、電感與佈局面積，輕載固定損耗也增加（站 06）；暫態則可以用更多相或更小電感換取更快的電流斜率（站 02、站 05）。<span class="en">More phases cost area and light-load loss (station 06).</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-quiz">
+    <h2 id="h-quiz"><span class="step">8</span>小測驗 <span class="en">Quick check</span></h2>
+    <div class="quiz" id="quiz"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-abbr">
+    <h2 id="h-abbr"><span class="step">A</span>縮寫對照 <span class="en">Abbreviations used on this page — hover any dotted-underlined term for its full name</span></h2>
+    <div class="scroll-x" id="abbrTable"></div>
+  </section>
+<!--#FOOTER-->
+計算方式：(1) 熱設計：N ≥ Icc_max ÷ 每相熱設計電流；(2) 功率級峰值：Icc_max ÷ N + ΔI<sub>L</sub>／2 ≤ 功率級標稱電流；(3) 長時間損耗：以「長時間電流 = Icc_max × 比例」代入站 01 的損耗模型（DrMOS 示意參數：R<sub>HS</sub> 3 mΩ、R<sub>LS</sub> 1 mΩ、DCR 0.2 mΩ、切換時間 3 ns、Q<sub>g</sub> 30 nC、C<sub>oss</sub> 1500 pF），每相損耗 ≤ 每相允許損耗。三者取最大值。平台 Icc_max 與 load-line 取自 coreboot <a href="https://github.com/coreboot/coreboot/blob/main/src/soc/intel/alderlake/vr_config.c" target="_blank" rel="noopener">vr_config.c</a>（範圍取上限）；控制器資料來自 Richtek、Renesas、AOS 產品頁。結果為教學推估，實際相數以 Intel 平台設計指南與 OEM 設計為準。
+<br>Phase count = max of thermal current, stage peak current and sustained-loss checks. Platform values from coreboot; illustrative device parameters.
+<!--#SCRIPT-->
+(function(){
+  const DEV = {vin:12, fsw:600, L:150, rhs:3, rls:1, dcr:0.2, tsw:3, qg:30, vdrv:5, coss:1500, tdt:5, pq:0.03};
+  const PLAT = [
+    {name:'ADL-P 45W（682／482／442）', core:160, coreLo:120, gt:55, llc:2.3, llg:3.2},
+    {name:'RPL-P 45W（682）', core:160, gt:55, llc:2.3, llg:3.2},
+    {name:'ADL-P 28W（682／482／442）', core:109, coreLo:85, gt:55, llc:2.3, llg:3.2},
+    {name:'RPL-P 28W（482／682）', core:102, gt:55, llc:2.3, llg:3.2},
+    {name:'ADL-P 15W（282）', core:80, gt:40, llc:2.8, llg:3.2},
+    {name:'RPL-P 15W（282）', core:80, gt:40, llc:2.8, llg:3.2},
+    {name:'ADL-N（6–15W）', core:53, coreLo:27, gt:40, gtLo:23, llc:5.0, llg:6.5}
+  ];
+  const P = {core:109, gt:55, sa:0, vcore:1.0, vgt:1.0, tdc:60, ith:25, rating:50, plim:2.5};
+  const G = {
+    pRail:[
+      {k:'core', zh:'Core（IA）Icc_max', en:'VCC_CORE', min:20, max:300, step:1, fmt:v => v.toFixed(0) + ' A'},
+      {k:'gt', zh:'GT Icc_max', en:'VCC_GT', min:0, max:120, step:1, fmt:v => v.toFixed(0) + ' A'},
+      {k:'sa', zh:'SA 電流（0 = 由別顆供電）', en:'VCCSA', min:0, max:40, step:1, fmt:v => v.toFixed(0) + ' A'},
+      {k:'vcore', zh:'Core 電壓', en:'Vcore', min:0.6, max:1.4, step:0.01, fmt:v => v.toFixed(2) + ' V'},
+      {k:'tdc', zh:'長時間電流佔 Icc_max', en:'Sustained / Icc_max', min:30, max:90, step:1, fmt:v => v.toFixed(0) + ' %'}
+    ],
+    pLim:[
+      {k:'ith', zh:'每相熱設計電流', en:'Thermal current per phase', min:10, max:50, step:1, fmt:v => v.toFixed(0) + ' A'},
+      {k:'rating', zh:'功率級標稱電流', en:'DrMOS / SPS rating', min:30, max:90, step:5, fmt:v => v.toFixed(0) + ' A'},
+      {k:'plim', zh:'每相允許損耗（長時間）', en:'Sustained loss limit', min:0.8, max:6, step:0.1, fmt:v => v.toFixed(1) + ' W'}
+    ]
+  };
+  const syncs = Object.keys(G).map(id => sliders(G[id], P, $(id), () => draw()));
+  const syncAll = () => syncs.forEach(s => s());
+  PLAT.forEach(p => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = p.name;
+    b.addEventListener('click', () => { P.core = p.core; P.gt = p.gt; syncAll(); draw(); });
+    $('presets').appendChild(b);
+  });
+
+  function needN(I, V){
+    if (I <= 0) return null;
+    const dev = Object.assign({}, DEV, {vout:V});
+    const nTh = Math.ceil(I / P.ith - 1e-9);
+    let nPk = 1; while (nPk < 16 && I / nPk + buckLoss(dev, nPk, I).dI / 2 > P.rating) nPk++;
+    let nLs = 1; while (nLs < 16 && buckLoss(dev, nLs, I * P.tdc / 100).ph.total > P.plim) nLs++;
+    const n = Math.max(nTh, nPk, nLs);
+    const at = buckLoss(dev, n, I), atT = buckLoss(dev, n, I * P.tdc / 100);
+    return {I, n, nTh, nPk, nLs, peak:I / n + at.dI / 2, loss:atT.ph.total, eff:atT.eff, dev};
+  }
+  let C, Gt, Sa;
+  function draw(){
+    C = needN(P.core, P.vcore); Gt = needN(P.gt, P.vgt); Sa = needN(P.sa, 1.0);
+    const cfg = [C.n, Gt ? Gt.n : 0].join('+') + (Sa ? '+' + Sa.n : '');
+    const total = C.n + (Gt ? Gt.n : 0) + (Sa ? Sa.n : 0);
+    const c = (lab, val, sub, col) => `<div style="--c:${col}"><span>${lab}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    $('bigres').innerHTML =
+      c('控制器配置', cfg, `總功率級 ${total} 顆`, 'var(--ink)') +
+      c('Core 相數', C.n + ' 相', `每相峰值 ${fx(C.peak, 1)} A`, 'var(--p1)') +
+      (Gt ? c('GT 相數', Gt.n + ' 相', `每相峰值 ${fx(Gt.peak, 1)} A`, 'var(--p2)') : '') +
+      (Sa ? c('SA 相數', Sa.n + ' 相', '', 'var(--p3)') : '') +
+      c('Core 長時間效率', fx(C.eff * 100, 1) + ' %', `每相 ${fx(C.loss, 2)} W`, 'var(--ok)');
+    const b = [];
+    const lim = r => r.n === r.nTh ? '熱設計電流' : r.n === r.nPk ? '功率級峰值' : '長時間損耗';
+    b.push(`<span class="badge info">Core 由「${lim(C)}」決定</span>`);
+    if (Gt) b.push(`<span class="badge info">GT 由「${lim(Gt)}」決定</span>`);
+    if (C.n + (Gt ? Gt.n : 0) > 8) b.push('<span class="badge warn">Core＋GT 超過 8 相：常見筆電雙軌控制器上限約 8 相（例如 RT3628AE 合計 1–8 相）</span>');
+    $('badges').innerHTML = b.join('');
+    board($('board'), [['Core', C ? C.n : 0, 'var(--p1)'], ['GT', Gt ? Gt.n : 0, 'var(--p2)'], ['SA', Sa ? Sa.n : 0, 'var(--p3)']].filter(x => x[1] > 0), 'direct', 'IMVP 控制器', cfg);
+    let h = '<thead><tr><th>電源軌</th><th class="m">(1) 熱設計<br>⌈I ÷ ' + P.ith + ' A⌉</th><th class="m">(2) 峰值 ≤ ' + P.rating + ' A</th><th class="m">(3) 長時間每相 ≤ ' + P.plim + ' W</th><th class="m">建議</th></tr></thead><tbody>';
+    [['Core', C], ['GT', Gt], ['SA', Sa]].forEach(([n, r]) => { if (!r) return;
+      h += `<tr><td>${n}（${r.I} A）</td><td class="m">${r.nTh} 相</td><td class="m">${r.nPk} 相</td><td class="m">${r.nLs} 相</td><td class="m"><b>${r.n} 相</b></td></tr>`; });
+    $('tblChk').innerHTML = h + '</tbody>';
+    sweep(); plat(); dbl();
+  }
+  function board(box, rails, mode, ctlName, cfg){
+    let h = `<div class="ctrl">${ctlName}<small>${cfg}</small></div>`;
+    rails.forEach(([name, n, col]) => {
+      let st = '';
+      for (let k = 0; k < n; k++){
+        if (mode === 'direct') st += `<div class="stg">${name}<br>${k + 1}</div>`;
+        else st += `<div class="pairbox"><div class="stg pair">${k + 1}a</div><div class="stg pair">${k + 1}b</div></div>`;
+      }
+      h += `<div class="rail" style="--c:${col}"><h4>${name} 軌 · ${n} 路 PWM${mode === 'direct' ? '' : ` → ${2 * n} 顆功率級`}</h4><div class="stages">${st}</div></div>`;
+    });
+    box.innerHTML = h;
+  }
+  function sweep(){
+    const dev = C.dev, pts = [], los = [];
+    for (let n = 1; n <= 10; n++){ pts.push([n, P.core / n + buckLoss(dev, n, P.core).dI / 2]); los.push([n, buckLoss(dev, n, P.core * P.tdc / 100).ph.total]); }
+    const ymax = Math.min(Math.max(...pts.map(p => p[1])), P.rating * 2.5) * 1.05, lmax = Math.min(Math.max(...los.map(p => p[1])), P.plim * 4) * 1.05;
+    const c = chart($('cSweep'), {W:760, H:280, l:48, r:48, t:22, b:28, x:[0.5, 10.5], xt:[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], xf:v => v + ' 相', y:[0, ymax], yf:v => fx(v, 0), ylab:'A'});
+    pts.forEach(([n, v]) => { const vv = Math.min(v, ymax); svgEl('rect', {x:c.X(n) - 16, y:c.Y(vv), width:32, height:c.Y(0) - c.Y(vv), fill:'var(--p1)', opacity:n === C.n ? 1 : .45}, $('cSweep')); });
+    c.hline(P.ith, {class:'ref', stroke:'var(--p1)'});
+    c.hline(Math.min(P.rating, ymax), {class:'ref', stroke:'var(--warn)', opacity:P.rating <= ymax ? 1 : 0});
+    const ly = v => v / lmax * ymax;
+    c.line(los.map(([n, v]) => [n, ly(Math.min(v, lmax))]), {stroke:'var(--p2)', 'stroke-width':2.6});
+    los.forEach(([n, v]) => svgEl('circle', {cx:c.X(n), cy:c.Y(ly(Math.min(v, lmax))), r:4, fill:'var(--p2)'}, $('cSweep')));
+    c.hline(ly(P.plim), {class:'ref', stroke:'var(--p2)'});
+    ticks(0, lmax, 4).forEach(v => svgEl('text', {x:760 - 44, y:c.Y(ly(v)) + 4, class:'tick', fill:'var(--p2)'}, $('cSweep'), fx(v, 1) + 'W'));
+    c.text(10.4, P.rating, '功率級標稱', {class:'tag-t', 'text-anchor':'end', dy:-4, opacity:P.rating <= ymax ? 1 : 0});
+  }
+  function plat(){
+    let h = '<thead><tr><th>平台</th><th class="m">Core Icc_max</th><th class="m">Core LL</th><th class="m">GT Icc_max</th><th class="m">GT LL</th><th class="m">建議配置</th></tr></thead><tbody>';
+    PLAT.forEach(p => {
+      const c1 = needN(p.core, P.vcore), g1 = needN(p.gt, P.vgt);
+      h += `<tr${p.core === P.core && p.gt === P.gt ? ' class="hl"' : ''}><td>${p.name}</td><td class="m">${p.coreLo ? p.coreLo + '–' : ''}${p.core} A</td><td class="m">${p.llc} mΩ</td><td class="m">${p.gtLo ? p.gtLo + '–' : ''}${p.gt} A</td><td class="m">${p.llg} mΩ</td><td class="m"><b>${c1.n}+${g1.n}</b></td></tr>`;
+    });
+    $('tblPlat').innerHTML = h + '</tbody>';
+  }
+  let DBL = 'doubler';
+  segGroup('segDbl', v => { DBL = v; dbl(); }); setSeg('segDbl', DBL);
+  function dbl(){
+    const n = 8, I = 240, f = DEV.fsw;
+    board($('dblBoard'), [['Core', n, 'var(--p1)']], DBL, '8 相控制器', DBL === 'direct' ? '8 路 PWM' : '8 路 PWM → 16 顆功率級');
+    const stages = DBL === 'direct' ? n : 2 * n;
+    const c = (lab, val, sub, col) => `<div style="--c:${col}"><span>${lab}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    $('dblRes').innerHTML =
+      c('宣傳相數', stages + ' 相', `控制器實際 ${n} 相`, 'var(--ink)') +
+      c('每顆功率級電流', fx(I / stages, 1) + ' A', `總電流 ${I} A（示意）`, 'var(--p1)') +
+      c('每顆功率級開關頻率', (DBL === 'doubler' ? f / 2 : f) + ' kHz', DBL === 'doubler' ? '輪流導通，頻率減半' : '', 'var(--p2)') +
+      c('輸出漣波頻率', fx(n * f / 1000, 1) + ' MHz', 'N × f<sub>sw</sub>，N = 控制器相數', 'var(--p3)');
+  }
+
+  quiz($('quiz'), [
+    {q:'Icc_max 160 A、每相熱設計電流 25 A，熱設計條件需要幾相？', opts:['5 相', '6 相', '7 相'], a:2,
+     why:'160 ÷ 25 = 6.4，無條件進位為 7 相。若每相可以抓到 27 A 以上，6 相即可——每相電流的假設對結果影響很大。'},
+    {q:'某主機板宣傳「16+2 相」，控制器是 8+2 相，用 Phase Doubler。下列何者正確？', opts:['輸出漣波頻率是 16 × f<sub>sw</sub>', '每顆功率級開關頻率減半，輸出漣波頻率仍是 8 × f<sub>sw</sub>', '暫態響應一定是 8 相的兩倍快'], a:1,
+     why:'Doubler 把一路 PWM 輪流分給兩組功率級，交錯數仍由控制器的 8 相決定。'},
+    {q:'為什麼 DrMOS 標稱 50 A，筆電每相卻只抓 20–30 A？', opts:['標稱值不準', '標稱值是理想散熱下的極限，筆電的散熱與效率甜蜜點在較低電流', '控制器限制每相電流'], a:1,
+     why:'長時間每相損耗要散得掉，第 4 區的橘線就是這個限制；峰值電流才拿來和標稱值比較。'}
+  ]);
+
+  draw();
+  abbrify($('abbrTable'));
+})();

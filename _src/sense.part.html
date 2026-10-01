@@ -1,0 +1,298 @@
+<!--#TITLE-->
+電流偵測與相間均流
+<!--#H1-->
+電流偵測與均流
+<!--#H1_EN-->
+DCR sensing · RC matching · SPS IMON · current balance
+<!--#CHIP-->
+RC <span>=</span> L／DCR
+<!--#LEDE-->
+<p class="lede">多相 VRM 每一相要分到差不多的電流，控制器得先「量得到」每相電流。常見兩種做法：用電感本身的直流電阻 DCR（DC Resistance）加一組 RC 無損感測，或用 SPS（Smart Power Stage，智慧功率級）內建的電流鏡直接輸出 IMON（Current Monitor）訊號。這一頁模擬 4 相在元件公差、走線差異與驅動時序差之下會怎麼分電流、哪一相最燙，以及 DCR 感測的 RC 沒對好時會發生什麼。
+  <span class="en">Phases only share current well if the controller can measure each one: DCR sensing with an RC network, or the integrated current mirror of a Smart Power Stage. Simulate current sharing with tolerances, trace differences and timing skew, and see what a mismatched RC does.</span></p>
+<!--#STYLE-->
+.ph-tbl input[type=range]{width:100%;min-width:70px;accent-color:var(--c)}
+.ph-tbl td{vertical-align:middle}
+.ph-tbl output{font-family:var(--mono);font-size:12.5px;color:var(--ink);display:block;text-align:right}
+.chart-wrap svg#cCur,.chart-wrap svg#cTmp,.chart-wrap svg#cRc{min-width:360px}
+<!--#BODY-->
+  <section class="panel" aria-labelledby="h-param">
+    <h2 id="h-param"><span class="step">1</span>設定 <span class="en">Inputs</span></h2>
+    <div class="ctl-row"><span class="lab">均流方式 Balancing</span>
+      <div class="seg" id="segMode" role="group" aria-label="均流方式"><button type="button" data-v="none">無均流迴路</button><button type="button" data-v="dcr">DCR 感測均流</button><button type="button" data-v="sps">SPS IMON 均流</button></div>
+    </div>
+    <div class="ctl-row"><span class="lab">DCR 溫度補償 NTC</span>
+      <div class="seg" id="segNtc" role="group" aria-label="溫度補償"><button type="button" data-v="1">有（NTC 貼在相 1 電感旁）</button><button type="button" data-v="0">沒有</button></div>
+    </div>
+    <div class="grid-2">
+      <div><div class="grp-title">共用條件 Common</div><div class="params compact" id="pCom"></div></div>
+      <div>
+        <div class="grp-title">各相差異 Per-phase mismatch</div>
+        <div class="scroll-x"><table class="tbl ph-tbl" id="phTbl" style="min-width:430px"></table></div>
+      </div>
+    </div>
+    <div class="presets" id="presets"><span>範例 Presets：</span></div>
+  </section>
+
+  <div class="grid-2">
+    <section class="panel" aria-labelledby="h-res">
+      <h2 id="h-res"><span class="step">2</span>結果 <span class="en">Result</span></h2>
+      <div class="badges" id="badges"></div>
+      <div class="bigres" id="bigres"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-bars">
+      <h2 id="h-bars"><span class="step">3</span>各相電流與溫度 <span class="en">Current and temperature per phase</span></h2>
+      <div class="chart-title">電流 <span class="en">Phase current (A) — dashed line is I／N</span></div>
+      <div class="chart-wrap"><svg id="cCur" class="chart" role="img" aria-label="各相電流長條圖"></svg></div>
+      <div class="chart-title">溫度 <span class="en">Estimated temperature (°C)</span></div>
+      <div class="chart-wrap"><svg id="cTmp" class="chart" role="img" aria-label="各相溫度長條圖"></svg></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-rc">
+    <h2 id="h-rc"><span class="step">4</span>DCR 感測的 RC 匹配 <span class="en">DCR sensing: the RC must match L／DCR</span></h2>
+    <div class="grid-2">
+      <div>
+        <svg viewBox="0 0 420 170" class="chart" role="img" aria-label="DCR 感測電路：電感與 DCR 串聯，兩端並聯 R 與 C，量電容電壓">
+          <path class="wire" d="M20 60H70M250 60H400M70 60V120H165M250 60V120H232M196 120H205"/>
+          <path class="wire" d="M70 60h20a8 8 0 0 1 16 0a8 8 0 0 1 16 0a8 8 0 0 1 16 0a8 8 0 0 1 16 0h16"/>
+          <rect x="168" y="50" width="50" height="20" rx="3" class="term"/>
+          <path class="wire" d="M218 60H250"/>
+          <rect x="120" y="112" width="45" height="16" rx="3" class="term"/>
+          <path class="plate" d="M205 106V134M213 106V134"/><path class="wire" d="M213 120H232"/>
+          <circle cx="205" cy="148" r="0"/>
+          <text x="104" y="40" class="lbl" text-anchor="middle">L</text>
+          <text x="193" y="44" class="lbl" text-anchor="middle">DCR</text>
+          <text x="142" y="150" class="lbl" text-anchor="middle">R</text>
+          <text x="209" y="152" class="lbl" text-anchor="middle">C</text>
+          <text x="20" y="50" class="lbl-sm">SW 節點</text>
+          <text x="400" y="50" class="lbl-sm" text-anchor="end">V<tspan dy="3" font-size="9">out</tspan></text>
+          <text x="209" y="98" class="read" text-anchor="middle">v_C → 控制器 CS+／CS−</text>
+          <text x="160" y="20" class="lbl-sm" text-anchor="middle">理想電感 L 與它的銅線電阻 DCR 是同一顆元件</text>
+        </svg>
+        <div class="params compact" id="pRc" style="margin-top:8px"></div>
+        <div class="presets" id="rcPresets"><span>快速設定：</span></div>
+      </div>
+      <div>
+        <div class="badges" id="rcBadges"></div>
+        <div class="chart-title">負載階躍時的電感電流與感測值 <span class="en">Inductor current vs sensed current</span></div>
+        <div class="chart-wrap"><svg id="cRc" class="chart" role="img" aria-label="電感電流與 DCR 感測電流"></svg></div>
+        <div class="mini-legend"><span><i style="color:var(--ink)"></i>實際電感電流</span><span><i style="color:var(--accent)"></i>感測值 v<sub>C</sub>／DCR<sub>nom</sub></span></div>
+      </div>
+    </div>
+    <p class="lede" style="margin-top:10px">電感兩端電壓 = L·di/dt + DCR·i。當 R·C = L／DCR，電容電壓剛好等於 DCR·i，感測值在暫態時也完全跟得上；RC 太大，感測值反應慢（暫態時低估電流，AVP 下垂與 OCP 都變慢）；RC 太小，暫態時會過衝（高估電流，可能誤觸 OCP）。溫度上升時 DCR 變大、L／DCR 變小，所以溫補不只影響直流讀值，也影響暫態匹配。
+      <span class="en">With RC = L/DCR the capacitor voltage equals DCR·i at all times. Larger RC lags, smaller RC overshoots; temperature changes DCR and therefore the match.</span></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-notes">
+    <h2 id="h-notes"><span class="step">5</span>重點與實務 <span class="en">Key points and practice</span></h2>
+    <div class="note-key"><span><span class="src ver">已查證</span> 有公開資料佐證</span><span><span class="src add">補充</span> 一般電源設計知識整理</span><span><span class="src pdf">修正</span> 修正原稿說法</span></div>
+    <div class="ngroups">
+      <div class="ngroup" style="--c:var(--p1)">
+        <h3>為什麼一定要均流迴路 <span class="en">Why a balance loop is mandatory</span></h3>
+        <ul>
+          <li><b>路徑電阻只有 1–2 mΩ</b><span class="src add">補充</span><br>每相從開關節點到輸出的總電阻很小，等效電壓只要差幾十 mV，電流就差十幾安培。驅動時序差 5 ns，在 12 V、600 kHz 下就相當於 12 × 5 ns × 600 kHz ≈ 36 mV。按「時序差 5 ns」範例看看沒有均流時會怎樣。<span class="en">A few ns of timing skew equals tens of mV, which is tens of amps across 1–2 mΩ.</span></li>
+          <li><b>溫度是負回授，但不夠</b><span class="src add">補充</span><br>電流大的相比較燙，銅電阻上升會把電流推回去一點，所以不會無限發散；但修正量很小，最燙的相仍然最燙。<span class="en">Copper's tempco pushes back, but only a little.</span></li>
+        </ul>
+      </div>
+      <div class="ngroup" style="--c:var(--ok)">
+        <h3>DCR 與 SPS 的差別 <span class="en">DCR vs SPS</span></h3>
+        <ul>
+          <li><b>銅的溫度係數 +0.39%／°C</b><span class="src add">補充</span><br>25 °C → 85 °C，DCR 上升約 23%，沒溫補時總電流讀值就偏高 23%，load-line 下垂與 OCP 都跟著偏。原稿這個數字正確。<span class="en">Uncompensated, an 85 °C inductor reads 23% high.</span></li>
+          <li><b>DCR 均流修不掉 DCR 公差</b><span class="src add">補充</span><br>DCR 感測量到的是 I·DCR；某相 DCR 偏大 6%，控制器以為它電流多 6%，就把它的電流調少——結果各相「量到的」相等，實際電流反而照 DCR 公差分配。選 DCR 公差小的電感很重要。<span class="en">Balancing on DCR-sensed signals reproduces the DCR tolerance.</span></li>
+          <li><b>SPS IMON 精度</b><span class="src ver">已查證</span><br>公開規格約 ±3%（Renesas ISL99390／ISL99380，涵蓋輸入電壓、負載與溫度）到典型 5%（AOS AOZ52177QI／AOZ52178QI，IMON 5 mV/A）。原稿說可達 ±2% 偏樂觀。好處是與電感公差、溫度無關，也不用調 RC。<span class="en">Public SPS specs: ±3% (Renesas) to typical 5% (AOS).</span></li>
+        </ul>
+      </div>
+      <div class="ngroup" style="--c:var(--p4)">
+        <h3>Layout 與量測 <span class="en">Layout and measurement</span></h3>
+        <ul>
+          <li><b>感測線是 Kelvin 連接</b><span class="src add">補充</span><br>DCR 感測線要從電感焊墊內側直接引出、以差分對平行走到控制器，遠離 SW 節點；NTC 要貼近電感、熱耦合要好，否則溫補補的是錯的溫度。<span class="en">Kelvin-connect the sense lines and keep the NTC thermally coupled.</span></li>
+          <li><b>IMON 是類比訊號</b><span class="src add">補充</span><br>SPS 的 IMON 阻抗較高，走線避開時脈與開關節點，並在控制器輸入腳附近加濾波電容。<span class="en">Route IMON away from noise and filter it at the controller.</span></li>
+          <li><b>驗證</b><span class="src add">補充</span><br>滿載時讀控制器各相 IMON，或用電流探棒量各相電感，再用熱像確認最燙的那一相；各相差異常見目標是 ±10% 以內。<span class="en">Check per-phase IMON and a thermal image at full load.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-quiz">
+    <h2 id="h-quiz"><span class="step">6</span>小測驗 <span class="en">Quick check</span></h2>
+    <div class="quiz" id="quiz"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-abbr">
+    <h2 id="h-abbr"><span class="step">A</span>縮寫對照 <span class="en">Abbreviations used on this page — hover any dotted-underlined term for its full name</span></h2>
+    <div class="scroll-x" id="abbrTable"></div>
+  </section>
+<!--#FOOTER-->
+計算模型：每相以「等效電壓源 V<sub>k</sub> 串聯路徑電阻 R<sub>k</sub>」表示，R<sub>k</sub> = R<sub>DS(on)</sub> 加權值 + DCR<sub>k</sub>(T) + 走線電阻；驅動時序差換算為 ΔV = V<sub>in</sub>·Δt·f<sub>sw</sub>。無均流時直接解並聯分流；有均流時控制器調整各相 V<sub>k</sub>，讓「量到的」電流相等：DCR 感測量到 I<sub>k</sub>·DCR<sub>k</sub>(T)／DCR<sub>nom</sub>（有 NTC 時再除以相 1 溫度的銅溫度係數），SPS 量到 I<sub>k</sub>·(1 + 誤差<sub>k</sub>)。溫度 T<sub>k</sub> = 環境溫度 + 熱阻 × 每相損耗（固定 0.35 W ＋ 0.022 W/A × I ＋ I²R），反覆計算到收斂。銅溫度係數 0.393%／°C。數值為示意。SPS 精度來源：Renesas ISL99390、AOS AOZ52178QI 產品資料。
+<br>Model: each phase is a voltage source behind its path resistance; balancing equalizes the sensed currents. Temperatures iterate with a simple thermal resistance. Illustrative values.
+<!--#SCRIPT-->
+(function(){
+  const ALPHA = 0.00393;
+  const P = {iout:100, vin:12, fsw:600, rfet:1.2, dcr:0.2, rth:22, tamb:50, n:4};
+  const PH0 = [
+    {dcr:5, tr:0, dt:0, sps:2},
+    {dcr:-3, tr:0.05, dt:0, sps:-1},
+    {dcr:2, tr:0.1, dt:0, sps:3},
+    {dcr:-6, tr:0.15, dt:0, sps:-2},
+    {dcr:0, tr:0.2, dt:0, sps:1},
+    {dcr:4, tr:0.25, dt:0, sps:-3}
+  ];
+  let PHs = PH0.map(x => Object.assign({}, x));
+  let MODE = 'dcr', NTC = true;
+  const defs = [
+    {k:'n', zh:'相數', en:'Phases N', min:2, max:6, step:1, fmt:v => v.toFixed(0) + ' 相'},
+    {k:'iout', zh:'總電流', en:'Iout', min:10, max:200, step:1, fmt:v => v.toFixed(0) + ' A'},
+    {k:'dcr', zh:'電感 DCR 標稱值（25 °C）', en:'DCR nom', min:0.08, max:0.6, step:0.01, fmt:v => v.toFixed(2) + ' mΩ'},
+    {k:'rfet', zh:'MOSFET 加權導通電阻', en:'D·RHS + (1−D)·RLS', min:0.5, max:3, step:0.05, fmt:v => v.toFixed(2) + ' mΩ'},
+    {k:'rth', zh:'每相熱阻', en:'Rth per phase', min:5, max:50, step:1, fmt:v => v.toFixed(0) + ' °C/W'},
+    {k:'tamb', zh:'環境溫度', en:'Ambient', min:25, max:80, step:1, fmt:v => v.toFixed(0) + ' °C'}
+  ];
+  const sync = sliders(defs, P, $('pCom'), () => { buildTbl(); solve(); });
+  segGroup('segMode', v => { MODE = v; solve(); }); setSeg('segMode', MODE);
+  segGroup('segNtc', v => { NTC = v === '1'; solve(); }); setSeg('segNtc', '1');
+
+  function buildTbl(){
+    const cols = [['dcr', 'DCR 公差', -10, 10, 0.5, v => (v > 0 ? '+' : '') + v.toFixed(1) + '%'],
+                  ['tr', '走線電阻', 0, 0.5, 0.01, v => v.toFixed(2) + ' mΩ'],
+                  ['dt', '驅動時序差', -10, 10, 0.5, v => (v > 0 ? '+' : '') + v.toFixed(1) + ' ns'],
+                  ['sps', 'SPS IMON 誤差', -5, 5, 0.5, v => (v > 0 ? '+' : '') + v.toFixed(1) + '%']];
+    let h = '<thead><tr><th>相</th>' + cols.map(c => `<th>${c[1]}</th>`).join('') + '</tr></thead><tbody>';
+    for (let k = 0; k < P.n; k++){
+      h += `<tr style="--c:${PH(k)}"><td class="m" style="color:${PH(k)};font-weight:800">${k + 1}</td>` +
+        cols.map(c => `<td><input type="range" data-k="${k}" data-f="${c[0]}" min="${c[2]}" max="${c[3]}" step="${c[4]}" value="${PHs[k][c[0]]}" aria-label="相 ${k + 1} ${c[1]}"><output id="ph_${k}_${c[0]}">${c[5](PHs[k][c[0]])}</output></td>`).join('') + '</tr>';
+    }
+    $('phTbl').innerHTML = h + '</tbody>';
+    $('phTbl').querySelectorAll('input').forEach(inp => inp.addEventListener('input', e => {
+      const k = +e.target.dataset.k, f = e.target.dataset.f, c = cols.find(x => x[0] === f);
+      PHs[k][f] = parseFloat(e.target.value); $(`ph_${k}_${f}`).textContent = c[5](PHs[k][f]); solve();
+    }));
+  }
+  const presets = [
+    {label:'典型公差＋DCR 均流', mode:'dcr', ntc:true, ph:PH0},
+    {label:'時序差 5 ns、無均流', mode:'none', ntc:true, ph:PH0.map((x, i) => Object.assign({}, x, {dt:i === 2 ? 5 : 0}))},
+    {label:'時序差 5 ns、DCR 均流', mode:'dcr', ntc:true, ph:PH0.map((x, i) => Object.assign({}, x, {dt:i === 2 ? 5 : 0}))},
+    {label:'某相電感 DCR +10%', mode:'dcr', ntc:true, ph:PH0.map((x, i) => Object.assign({}, x, {dcr:i === 1 ? 10 : 0, dt:0}))},
+    {label:'同上改用 SPS', mode:'sps', ntc:true, ph:PH0.map((x, i) => Object.assign({}, x, {dcr:i === 1 ? 10 : 0, dt:0}))},
+    {label:'DCR 均流但沒有溫補', mode:'dcr', ntc:false, ph:PH0}
+  ];
+  presets.forEach(p => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = p.label;
+    b.addEventListener('click', () => { MODE = p.mode; NTC = p.ntc; setSeg('segMode', MODE); setSeg('segNtc', NTC ? '1' : '0'); PHs = p.ph.map(x => Object.assign({}, x)); buildTbl(); solve(); });
+    $('presets').appendChild(b);
+  });
+
+  let S;
+  function solve(){
+    const N = P.n, ph = PHs.slice(0, N);
+    let T = ph.map(() => P.tamb + 30), I = ph.map(() => P.iout / N);
+    const R = () => ph.map((x, k) => (P.rfet + P.dcr * (1 + x.dcr / 100) * (1 + ALPHA * (T[k] - 25)) + x.tr) * 1e-3);
+    let sensed = [];
+    for (let it = 0; it < 60; it++){
+      const r = R();
+      if (MODE === 'none'){
+        const dv = ph.map(x => P.vin * x.dt * 1e-9 * P.fsw * 1e3);
+        const g = r.map(v => 1 / v), sg = g.reduce((a, b) => a + b, 0);
+        const vo = (dv.reduce((a, v, k) => a + v * g[k], 0) - P.iout) / sg;  // relative to nominal
+        I = dv.map((v, k) => (v - vo) * g[k]);
+      } else {
+        const gain = ph.map((x, k) => MODE === 'sps' ? 1 + x.sps / 100
+          : (1 + x.dcr / 100) * (1 + ALPHA * (T[k] - 25)) / (NTC ? 1 + ALPHA * (T[0] - 25) : 1));
+        const w = gain.map(v => 1 / v), sw = w.reduce((a, b) => a + b, 0);
+        I = w.map(v => P.iout * v / sw);
+      }
+      const r2 = R();
+      const Tn = I.map((i, k) => P.tamb + P.rth * (0.35 + 0.022 * Math.abs(i) + i * i * r2[k]));
+      T = T.map((t, k) => 0.5 * t + 0.5 * Tn[k]);
+    }
+    // total current reading used for load-line / OCP
+    const rd = MODE === 'sps' ? I.reduce((a, i, k) => a + i * (1 + ph[k].sps / 100), 0)
+      : I.reduce((a, i, k) => a + i * (1 + ph[k].dcr / 100) * (1 + ALPHA * (T[k] - 25)) / (NTC ? 1 + ALPHA * (T[0] - 25) : 1), 0);
+    S = {I, T, rd, r:R()};
+    draw();
+  }
+  function draw(){
+    const N = P.n, avg = P.iout / N;
+    const imax = Math.max(...S.I), imin = Math.min(...S.I), hot = S.T.indexOf(Math.max(...S.T));
+    const unb = (imax - imin) / avg * 100;
+    const c = (lab, val, sub, col) => `<div style="--c:${col || 'var(--accent)'}"><span>${lab}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    const modeName = {none:'無均流迴路', dcr:'DCR 感測均流', sps:'SPS IMON 均流'}[MODE];
+    $('bigres').innerHTML =
+      c('均流方式', modeName, MODE === 'dcr' ? (NTC ? '有 NTC 溫補' : '沒有溫補') : '') +
+      c('最大／最小相電流', `${fx(imax, 1)}／${fx(imin, 1)} A`, `平均 ${fx(avg, 1)} A`, 'var(--p2)') +
+      c('相間不平衡', fx(unb, 1) + ' %', '(最大 − 最小) ÷ 平均', unb <= 10 ? 'var(--ok)' : 'var(--warn)') +
+      c('最燙的相', `相 ${hot + 1}｜${fx(S.T[hot], 0)} °C`, `最冷 ${fx(Math.min(...S.T), 0)} °C`, PH(hot)) +
+      c('總電流讀值', fx(MODE === 'none' ? NaN : S.rd, 1) + ' A', MODE === 'none' ? '無感測' : `誤差 ${fx((S.rd / P.iout - 1) * 100, 1)}%（影響 load-line 與 OCP）`, MODE !== 'none' && Math.abs(S.rd / P.iout - 1) > 0.05 ? 'var(--warn)' : 'var(--p5)');
+    if (MODE === 'none') $('bigres').lastElementChild.querySelector('b').textContent = '—';
+    const b = [];
+    b.push(unb <= 10 ? '<span class="badge ok">相間不平衡 ≤ 10%</span>' : `<span class="badge warn">相間不平衡 ${fx(unb, 0)}%</span>`);
+    if (MODE === 'dcr' && PHs.slice(0, N).some(x => Math.abs(x.dcr) >= 5)) b.push('<span class="badge info">DCR 均流會照 DCR 公差分電流</span>');
+    if (MODE === 'none' && PHs.slice(0, N).some(x => x.dt !== 0)) b.push('<span class="badge warn">沒有均流時，時序差直接變成電流差</span>');
+    $('badges').innerHTML = b.join('');
+    // bars
+    const cur = chart($('cCur'), {W:460, H:200, l:44, r:10, t:22, b:24, x:[0.4, N + 0.6], xt:Array.from({length:N}, (_, k) => k + 1), xf:v => '相 ' + v, y:[0, Math.max(imax, avg) * 1.25], yf:v => fx(v, 0), ylab:'A'});
+    S.I.forEach((i, k) => { svgEl('rect', {x:cur.X(k + 1) - 20, y:cur.Y(Math.max(0, i)), width:40, height:cur.Y(0) - cur.Y(Math.max(0, i)), fill:PH(k)}, $('cCur')); cur.text(k + 1, Math.max(0, i), fx(i, 1), {class:'tag-t', 'text-anchor':'middle', dy:-4}); });
+    cur.hline(avg, {class:'ref', stroke:'var(--muted)'});
+    const tmax = Math.max(...S.T, P.tamb + 10);
+    const tmp = chart($('cTmp'), {W:460, H:180, l:44, r:10, t:22, b:24, x:[0.4, N + 0.6], xt:Array.from({length:N}, (_, k) => k + 1), xf:v => '相 ' + v, y:[P.tamb - 5, tmax + 8], yf:v => fx(v, 0), ylab:'°C'});
+    S.T.forEach((t, k) => {
+      const hue = Math.max(0, Math.min(1, (t - P.tamb) / Math.max(1, tmax - P.tamb)));
+      svgEl('rect', {x:tmp.X(k + 1) - 20, y:tmp.Y(t), width:40, height:tmp.Y(P.tamb - 5) - tmp.Y(t), fill:`color-mix(in srgb, var(--warn) ${fx(30 + 70 * hue, 0)}%, var(--p6))`}, $('cTmp'));
+      tmp.text(k + 1, t, fx(t, 0) + '°', {class:'tag-t', 'text-anchor':'middle', dy:-4});
+    });
+  }
+
+  /* ---------- RC matching ---------- */
+  const Q = {L:150, dcr0:0.2, rs:3.3, cs:0.22, tl:25};
+  const rcDefs = [
+    {k:'L', zh:'電感', en:'L', min:47, max:470, step:1, fmt:v => v.toFixed(0) + ' nH'},
+    {k:'dcr0', zh:'DCR（25 °C）', en:'DCR', min:0.08, max:0.6, step:0.01, fmt:v => v.toFixed(2) + ' mΩ'},
+    {k:'rs', zh:'感測電阻 R', en:'R', min:0.5, max:20, step:0.1, fmt:v => v.toFixed(1) + ' kΩ'},
+    {k:'cs', zh:'感測電容 C', en:'C', min:0.01, max:1, step:0.01, fmt:v => v.toFixed(2) + ' µF'},
+    {k:'tl', zh:'電感溫度', en:'Inductor temperature', min:25, max:110, step:1, fmt:v => v.toFixed(0) + ' °C'}
+  ];
+  const rcSync = sliders(rcDefs, Q, $('pRc'), () => rc());
+  [['匹配（25 °C）', 1], ['RC 大 2 倍', 2], ['RC 小一半', 0.5]].forEach(([lab, m]) => {
+    const b = document.createElement('button'); b.type = 'button'; b.textContent = lab;
+    b.addEventListener('click', () => { Q.tl = 25; Q.rs = +(m * Q.L * 1e-9 / (Q.dcr0 * 1e-3) / (Q.cs * 1e-6) / 1e3).toFixed(1); rcSync(); rc(); });
+    $('rcPresets').appendChild(b);
+  });
+  function rc(){
+    const dcrT = Q.dcr0 * 1e-3 * (1 + ALPHA * (Q.tl - 25)), L = Q.L * 1e-9, tauL = L / dcrT, tauRC = Q.rs * 1e3 * Q.cs * 1e-6;
+    const I1 = 5, I2 = 25, tr = 0.5e-6, TE = Math.max(40e-6, 4 * Math.max(tauRC, tauL)), t0 = 0.1 * TE, dt = Math.min(TE / 4000, 0.1e-6), NS = Math.ceil(TE / dt), every = Math.max(1, Math.floor(NS / 1500));
+    const iL = t => t < t0 ? I1 : t < t0 + tr ? I1 + (I2 - I1) * (t - t0) / tr : I2;
+    let vc = I1 * dcrT; const a = [], s = []; let pk = 0, prev = I1;
+    for (let j = 0; j <= NS; j++){
+      const t = j * dt, i = iL(t), di = (i - prev) / dt; prev = i;
+      const vl = L * di + dcrT * i;
+      vc += (vl - vc) / tauRC * dt;
+      const sensed = vc / (Q.dcr0 * 1e-3);
+      if (j % every === 0 || (t >= t0 - dt && t <= t0 + tr + dt)){ a.push([t * 1e6, i]); s.push([t * 1e6, sensed]); }
+      pk = Math.max(pk, sensed);
+    }
+    const ymax = Math.max(I2 * 1.35, pk * 1.08);
+    const c = chart($('cRc'), {W:460, H:240, l:44, r:10, t:22, b:26, x:[0, TE * 1e6], y:[0, ymax], yf:v => fx(v, 0), xf:v => fx(v, 0), xlab:'t (µs)', ylab:'A'});
+    c.line(a, {stroke:'var(--ink)', 'stroke-width':2.2});
+    c.line(s, {stroke:'var(--accent)', 'stroke-width':2.4});
+    const ratio = tauRC / tauL, stErr = (dcrT / (Q.dcr0 * 1e-3) - 1) * 100;
+    const b = [];
+    b.push(`<span class="badge info">L／DCR = ${fx(tauL * 1e6, 0)} µs，RC = ${fx(tauRC * 1e6, 0)} µs（比值 ${fx(ratio, 2)}）</span>`);
+    if (ratio > 1.1) b.push('<span class="badge warn">RC 偏大：暫態低估電流</span>');
+    else if (ratio < 0.9) b.push('<span class="badge warn">RC 偏小：暫態高估電流（過衝）</span>');
+    else b.push('<span class="badge ok">RC 與 L／DCR 匹配</span>');
+    if (Math.abs(stErr) > 1) b.push(`<span class="badge warn">${Q.tl} °C 時穩態讀值偏高 ${fx(stErr, 1)}%（需溫補）</span>`);
+    b.push(`<span class="badge info">匹配所需 R ≈ ${fx(Q.L * 1e-9 / (Q.dcr0 * 1e-3) / (Q.cs * 1e-6) / 1e3, 2)} kΩ（25 °C）</span>`);
+    $('rcBadges').innerHTML = b.join('');
+  }
+
+  quiz($('quiz'), [
+    {q:'L = 220 nH、DCR = 0.25 mΩ、感測電容 C = 0.1 µF，匹配的 R 是多少？', opts:['0.88 kΩ', '8.8 kΩ', '88 kΩ'], a:1,
+     why:'L／DCR = 220 nH ÷ 0.25 mΩ = 880 µs；R = 880 µs ÷ 0.1 µF = 8.8 kΩ。可以在第 4 區輸入驗證。'},
+    {q:'用 DCR 感測做均流，某相電感 DCR 比標稱高 10%，結果會？', opts:['那一相電流也高 10%', '控制器以為它電流多，把它調少，實際電流約少 10%', '完全不受影響'], a:1,
+     why:'DCR 感測量的是 I·DCR；控制器讓各相量到的值相等，DCR 大的相實際電流就會比較少。按「某相電感 DCR +10%」與「同上改用 SPS」比較。'},
+    {q:'沒有均流迴路時，最容易造成大幅不平衡的是？', opts:['DCR 公差 5%', '幾 ns 的驅動時序差', '走線電阻差 0.05 mΩ'], a:1,
+     why:'5 ns × 12 V × 600 kHz ≈ 36 mV，跨在 1–2 mΩ 的路徑上就是十幾到二十幾安培的差異。均流迴路正是用來修正這種差異的。'}
+  ]);
+
+  buildTbl(); solve(); rc();
+  abbrify($('abbrTable'));
+})();

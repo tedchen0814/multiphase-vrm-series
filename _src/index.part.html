@@ -34,13 +34,13 @@ Multi-phase VRM Series · learning map
   const S = [
     ['01', '為什麼需要多相', 'Why multi-phase', 'why-multiphase.html', '低電壓 × 大電流讓單相在物理上做不到：電流、導通損耗 ∝ I²／N、切換損耗 ∝ N。', ['CPU 功率 → 電流計算器', '損耗對相數曲線']],
     ['02', '交錯並聯與紋波抵消', 'Interleaving & ripple', 'ripple.html', '漣波頻率變 N 倍、抵消程度看 D、輸入 RMS 電流大降。', ['N 相電路動畫與同步波形', 'K(D, N) 曲線']],
-    ['03', 'DrMOS／SPS 功率級', 'Power stage', '', '寄生電感與振鈴、整合封裝解決了什麼。', ['振鈴模擬', '分離式／DrMOS／SPS 比較']],
-    ['04', '電流偵測與均流', 'Current sense & balance', '', 'DCR 感測 RC 匹配、溫漂、SPS IMON。', ['相間誤差 → 電流與溫度']],
+    ['03', 'DrMOS／SPS 功率級', 'Power stage', 'power-stage.html', '寄生電感與振鈴、整合封裝解決了什麼。', ['振鈴模擬', '分離式／DrMOS／SPS 比較']],
+    ['04', '電流偵測與均流', 'Current sense & balance', 'current-sense.html', 'DCR 感測 RC 匹配、溫漂、SPS IMON。', ['相間誤差 → 電流與溫度']],
     ['05', 'Load-line 與負載暫態', 'Load-line & transient', 'load-line.html', '刻意下垂的 AVP、容差窗、輸出阻抗與三級電容。', ['負載階躍模擬', '有／無 AVP 對照', '|Z(f)| 圖']],
     ['06', '效率與相數切換', 'Efficiency & phase shedding', 'phase-shedding.html', '最佳相數、Phase Shedding、DCM 與 PS0–PS4。', ['效率曲線', '自動切相動畫']],
-    ['07', 'IMVP9.x 與 SVID', 'Intel IMVP & SVID', '', '多軌控制器、SVID 指令、IMVP 版本與世代。', ['電源軌架構圖', 'SVID 時序']],
-    ['08', '45W／28W 要幾相', 'Phase count', '', '由 Icc_max 與每相熱電流推出相數與控制器配置。', ['相數計算器']],
-    ['09', '佈局與量測除錯', 'Layout & debug', '', '對稱佈局、熱迴路、遠端感測、量測方法與故障對照。', ['佈局熱點圖', '檢查清單']]
+    ['07', 'IMVP9.x 與 SVID', 'Intel IMVP & SVID', 'imvp-svid.html', '多軌控制器、SVID 指令、IMVP 版本與世代。', ['電源軌架構圖', 'SVID 時序']],
+    ['08', '45W／28W 要幾相', 'Phase count', 'phase-count.html', '由 Icc_max 與每相熱電流推出相數與控制器配置。', ['相數計算器']],
+    ['09', '佈局與量測除錯', 'Layout & debug', 'layout.html', '對稱佈局、熱迴路、遠端感測、量測方法與故障對照。', ['佈局熱點圖', '檢查清單']]
   ];
   const BUILT = __BUILT__;   // site file -> single-file name, filled in by build.py
   const single = /_互動教學\.html$/.test(decodeURIComponent(location.pathname));

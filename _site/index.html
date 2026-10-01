@@ -17,7 +17,7 @@
 </head>
 <body>
 <div class="wrap">
-<nav class="series" aria-label="系列 Series"><span class="lab">系列 Series</span><span class="cur" aria-current="page"><b>HOME</b>系列首頁</span><a href="why-multiphase.html"><b>01 WHY</b>為什麼要多相</a><a href="ripple.html"><b>02 RIPPLE</b>紋波抵消</a><span class="soon"><b>03 POWER STAGE</b>DrMOS／SPS · 準備中</span><span class="soon"><b>04 CURRENT SENSE</b>電流偵測與均流 · 準備中</span><a href="load-line.html"><b>05 LOAD-LINE</b>負載暫態</a><a href="phase-shedding.html"><b>06 PHASE SHEDDING</b>效率與切相</a><span class="soon"><b>07 IMVP9 / SVID</b>Intel 規範 · 準備中</span><span class="soon"><b>08 PHASE COUNT</b>45W／28W 幾相 · 準備中</span><span class="soon"><b>09 LAYOUT</b>佈局與除錯 · 準備中</span><a href="https://dcdc-topology-series.vercel.app/buck.html" target="_blank" rel="noopener"><b>↗ BUCK</b>前置：同步降壓</a></nav>
+<nav class="series" aria-label="系列 Series"><span class="lab">系列 Series</span><span class="cur" aria-current="page"><b>HOME</b>系列首頁</span><a href="why-multiphase.html"><b>01 WHY</b>為什麼要多相</a><a href="ripple.html"><b>02 RIPPLE</b>紋波抵消</a><span class="soon"><b>03 POWER STAGE</b>DrMOS／SPS · 準備中</span><a href="current-sense.html"><b>04 CURRENT SENSE</b>電流偵測與均流</a><a href="load-line.html"><b>05 LOAD-LINE</b>負載暫態</a><a href="phase-shedding.html"><b>06 PHASE SHEDDING</b>效率與切相</a><span class="soon"><b>07 IMVP9 / SVID</b>Intel 規範 · 準備中</span><a href="phase-count.html"><b>08 PHASE COUNT</b>45W／28W 幾相</a><span class="soon"><b>09 LAYOUT</b>佈局與除錯 · 準備中</span><a href="https://dcdc-topology-series.vercel.app/buck.html" target="_blank" rel="noopener"><b>↗ BUCK</b>前置：同步降壓</a></nav>
 <header>
 <div>
 <div class="eyebrow">Multi-phase VRM Series · HOME</div>
@@ -49,15 +49,15 @@
 const S = [
 ['01', '為什麼需要多相', 'Why multi-phase', 'why-multiphase.html', '低電壓 × 大電流讓單相在物理上做不到：電流、導通損耗 ∝ I²／N、切換損耗 ∝ N。', ['CPU 功率 → 電流計算器', '損耗對相數曲線']],
 ['02', '交錯並聯與紋波抵消', 'Interleaving & ripple', 'ripple.html', '漣波頻率變 N 倍、抵消程度看 D、輸入 RMS 電流大降。', ['N 相電路動畫與同步波形', 'K(D, N) 曲線']],
-['03', 'DrMOS／SPS 功率級', 'Power stage', '', '寄生電感與振鈴、整合封裝解決了什麼。', ['振鈴模擬', '分離式／DrMOS／SPS 比較']],
-['04', '電流偵測與均流', 'Current sense & balance', '', 'DCR 感測 RC 匹配、溫漂、SPS IMON。', ['相間誤差 → 電流與溫度']],
+['03', 'DrMOS／SPS 功率級', 'Power stage', 'power-stage.html', '寄生電感與振鈴、整合封裝解決了什麼。', ['振鈴模擬', '分離式／DrMOS／SPS 比較']],
+['04', '電流偵測與均流', 'Current sense & balance', 'current-sense.html', 'DCR 感測 RC 匹配、溫漂、SPS IMON。', ['相間誤差 → 電流與溫度']],
 ['05', 'Load-line 與負載暫態', 'Load-line & transient', 'load-line.html', '刻意下垂的 AVP、容差窗、輸出阻抗與三級電容。', ['負載階躍模擬', '有／無 AVP 對照', '|Z(f)| 圖']],
 ['06', '效率與相數切換', 'Efficiency & phase shedding', 'phase-shedding.html', '最佳相數、Phase Shedding、DCM 與 PS0–PS4。', ['效率曲線', '自動切相動畫']],
-['07', 'IMVP9.x 與 SVID', 'Intel IMVP & SVID', '', '多軌控制器、SVID 指令、IMVP 版本與世代。', ['電源軌架構圖', 'SVID 時序']],
-['08', '45W／28W 要幾相', 'Phase count', '', '由 Icc_max 與每相熱電流推出相數與控制器配置。', ['相數計算器']],
-['09', '佈局與量測除錯', 'Layout & debug', '', '對稱佈局、熱迴路、遠端感測、量測方法與故障對照。', ['佈局熱點圖', '檢查清單']]
+['07', 'IMVP9.x 與 SVID', 'Intel IMVP & SVID', 'imvp-svid.html', '多軌控制器、SVID 指令、IMVP 版本與世代。', ['電源軌架構圖', 'SVID 時序']],
+['08', '45W／28W 要幾相', 'Phase count', 'phase-count.html', '由 Icc_max 與每相熱電流推出相數與控制器配置。', ['相數計算器']],
+['09', '佈局與量測除錯', 'Layout & debug', 'layout.html', '對稱佈局、熱迴路、遠端感測、量測方法與故障對照。', ['佈局熱點圖', '檢查清單']]
 ];
-const BUILT = {"why-multiphase.html": "VRM-01-WHY_互動教學.html", "ripple.html": "VRM-02-RIPPLE_互動教學.html", "load-line.html": "VRM-05-LOADLINE_互動教學.html", "phase-shedding.html": "VRM-06-SHED_互動教學.html"};   // site file -> single-file name, filled in by build.py
+const BUILT = {"why-multiphase.html": "VRM-01-WHY_互動教學.html", "ripple.html": "VRM-02-RIPPLE_互動教學.html", "current-sense.html": "VRM-04-SENSE_互動教學.html", "load-line.html": "VRM-05-LOADLINE_互動教學.html", "phase-shedding.html": "VRM-06-SHED_互動教學.html", "phase-count.html": "VRM-08-COUNT_互動教學.html"};   // site file -> single-file name, filled in by build.py
 const single = /_互動教學\.html$/.test(decodeURIComponent(location.pathname));
 S.forEach(s => { s[3] = BUILT[s[3]] !== undefined ? (single ? BUILT[s[3]] : s[3]) : ''; });
 const cols = ['var(--p1)', 'var(--p2)', 'var(--p3)', 'var(--p4)', 'var(--p5)', 'var(--p6)', 'var(--p7)', 'var(--p8)', 'var(--accent)'];
