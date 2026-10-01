@@ -1,0 +1,56 @@
+<!--#TITLE-->
+多相供電 VRM 學習地圖
+<!--#H1-->
+多相供電 VRM 學習地圖
+<!--#H1_EN-->
+Multi-phase VRM Series · learning map
+<!--#CHIP-->
+1 <span>→</span> N 相
+<!--#LEDE-->
+<p class="lede">現代 CPU／GPU 的核心電壓不到 1 V、電流卻上百安培，單相 Buck（降壓轉換器）做不到，於是有了多相 VRM（Voltage Regulator Module，電壓調節模組）。這個系列依「問題 → 原理 → 元件 → 控制 → 規範 → 實例 → 實作」排成 9 站，每一站都是一頁可以拉滑桿、看波形的互動教學。已有同步 Buck 基礎可以從 01 開始；沒有的話先看前置的 Buck 頁。
+  <span class="en">Core rails below 1 V at hundreds of amps are beyond a single-phase buck. Nine interactive stations go from the problem, through principles, components, control and Intel specs, to real platforms and layout.</span></p>
+<!--#STYLE-->
+.cards .card.soon{opacity:.6;pointer-events:none}
+.path{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;font-size:14px}
+.path b{font-family:var(--display);font-size:17px;letter-spacing:.05em}
+.path .arr{color:var(--muted)}
+<!--#BODY-->
+  <section class="panel" aria-labelledby="h-path">
+    <h2 id="h-path"><span class="step">1</span>建議路徑 <span class="en">Suggested path</span></h2>
+    <div class="path">
+      <span><b>前置</b> 同步 Buck</span><span class="arr">→</span>
+      <span><b>01–02</b> 為什麼與原理</span><span class="arr">→</span>
+      <span><b>03–06</b> 工程問題與解法</span><span class="arr">→</span>
+      <span><b>07–08</b> Intel 平台落地</span><span class="arr">→</span>
+      <span><b>09</b> 佈局與除錯</span>
+    </div>
+  </section>
+  <div class="cards" id="cards"></div>
+<!--#FOOTER-->
+內容整理自 Gemini 對話原稿並經查證補充；Intel 平台數值來源為開源韌體 coreboot 的 Alder Lake VR 預設值，控制器資料來自各廠商公開規格書。實際設計請以 Intel 平台文件與晶片規格書為準。
+<br>Compiled and fact-checked from public sources; always verify against Intel platform documents and datasheets.
+<!--#SCRIPT-->
+(function(){
+  const S = [
+    ['01', '為什麼需要多相', 'Why multi-phase', 'why-multiphase.html', '低電壓 × 大電流讓單相在物理上做不到：電流、導通損耗 ∝ I²／N、切換損耗 ∝ N。', ['CPU 功率 → 電流計算器', '損耗對相數曲線']],
+    ['02', '交錯並聯與紋波抵消', 'Interleaving & ripple', 'ripple.html', '漣波頻率變 N 倍、抵消程度看 D、輸入 RMS 電流大降。', ['N 相電路動畫與同步波形', 'K(D, N) 曲線']],
+    ['03', 'DrMOS／SPS 功率級', 'Power stage', '', '寄生電感與振鈴、整合封裝解決了什麼。', ['振鈴模擬', '分離式／DrMOS／SPS 比較']],
+    ['04', '電流偵測與均流', 'Current sense & balance', '', 'DCR 感測 RC 匹配、溫漂、SPS IMON。', ['相間誤差 → 電流與溫度']],
+    ['05', 'Load-line 與負載暫態', 'Load-line & transient', 'load-line.html', '刻意下垂的 AVP、容差窗、輸出阻抗與三級電容。', ['負載階躍模擬', '有／無 AVP 對照', '|Z(f)| 圖']],
+    ['06', '效率與相數切換', 'Efficiency & phase shedding', 'phase-shedding.html', '最佳相數、Phase Shedding、DCM 與 PS0–PS4。', ['效率曲線', '自動切相動畫']],
+    ['07', 'IMVP9.x 與 SVID', 'Intel IMVP & SVID', '', '多軌控制器、SVID 指令、IMVP 版本與世代。', ['電源軌架構圖', 'SVID 時序']],
+    ['08', '45W／28W 要幾相', 'Phase count', '', '由 Icc_max 與每相熱電流推出相數與控制器配置。', ['相數計算器']],
+    ['09', '佈局與量測除錯', 'Layout & debug', '', '對稱佈局、熱迴路、遠端感測、量測方法與故障對照。', ['佈局熱點圖', '檢查清單']]
+  ];
+  const BUILT = __BUILT__;   // site file -> single-file name, filled in by build.py
+  const single = /_互動教學\.html$/.test(decodeURIComponent(location.pathname));
+  S.forEach(s => { s[3] = BUILT[s[3]] !== undefined ? (single ? BUILT[s[3]] : s[3]) : ''; });
+  const cols = ['var(--p1)', 'var(--p2)', 'var(--p3)', 'var(--p4)', 'var(--p5)', 'var(--p6)', 'var(--p7)', 'var(--p8)', 'var(--accent)'];
+  $('cards').innerHTML = S.map((s, i) => {
+    const tag = s[3] ? 'a' : 'div';
+    return `<${tag} class="card${s[3] ? '' : ' soon'}" style="--c:${cols[i]}"${s[3] ? ` href="${s[3]}"` : ''}>
+      <span class="no">STATION ${s[0]}</span><h2>${s[1]}<small>${s[2]}</small></h2><p>${s[4]}</p>
+      <ul>${s[5].map(x => `<li>${x}</li>`).join('')}</ul><span class="go">${s[3] ? '進入 →' : '準備中'}</span></${tag}>`;
+  }).join('');
+  abbrify(null);
+})();
