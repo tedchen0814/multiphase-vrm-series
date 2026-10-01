@@ -1,0 +1,273 @@
+<!--#TITLE-->
+Intel IMVP9.x 與 SVID
+<!--#H1-->
+IMVP9.x 與 SVID
+<!--#H1_EN-->
+Multi-rail controllers · SVID commands · VID slew · PS states · IMVP generations
+<!--#CHIP-->
+CPU <span>⇄</span> VR
+<!--#LEDE-->
+<p class="lede">IMVP（Intel Mobile Voltage Positioning）是 Intel 行動平台的核心供電規範。CPU 透過三線的 SVID（Serial Voltage Identification）匯流排，隨時告訴 VRM 控制器要多少電壓（VID，Voltage Identification）、用多快的速度改變、預期負載多重（PS0–PS4），並讀回電流與溫度。這一頁有電源軌架構圖、可以實際「下指令」的 SVID 模擬器，以及 IMVP 各版本與世代的查證對照。
+  <span class="en">IMVP is Intel's mobile core-power specification. Over the three-wire SVID bus the CPU sets the voltage, its slew rate and the expected load state, and reads back current and temperature.</span></p>
+<!--#STYLE-->
+.rail-map{min-width:620px}
+.rail-box{cursor:pointer}
+.rail-box rect{transition:stroke-width .15s}
+.rail-box.sel rect{stroke-width:4}
+.cmd-row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.cmd-row .lab{font-weight:700;color:var(--muted);font-size:13px;min-width:88px}
+.log{font-family:var(--mono);font-size:12.5px;background:var(--paper-2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;max-height:150px;overflow:auto;white-space:pre-wrap}
+<!--#BODY-->
+  <section class="panel" aria-labelledby="h-map">
+    <h2 id="h-map"><span class="step">1</span>電源軌架構 <span class="en">Rail architecture — click a rail</span></h2>
+    <div class="ctl-row"><span class="lab">平台世代 Generation</span>
+      <div class="seg" id="segGen" role="group" aria-label="平台世代"><button type="button" data-v="adl">Alder／Raptor Lake（IMVP9.1）</button><button type="button" data-v="mtl">Meteor Lake 世代（IMVP9.2）</button></div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="chart-wrap"><svg id="map" class="chart rail-map" role="img" aria-label="CPU 電源軌、VR 控制器與 SVID 匯流排架構圖"></svg></div>
+      <div class="infobox" id="railInfo"></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-svid">
+    <h2 id="h-svid"><span class="step">2</span>SVID 指令模擬器 <span class="en">Send SVID commands and watch the core rail respond</span></h2>
+    <div class="grid-2">
+      <div>
+        <div class="cmd-row"><span class="lab">目標 VID</span><div class="params" id="pVid" style="flex:1;min-width:200px"></div></div>
+        <div class="cmd-row"><span class="lab">設定電壓</span>
+          <button type="button" data-cmd="fast">SetVID_Fast</button><button type="button" data-cmd="slow">SetVID_Slow</button><button type="button" data-cmd="decay">SetVID_Decay</button></div>
+        <div class="cmd-row"><span class="lab">電源狀態</span>
+          <button type="button" data-cmd="PS0">SetPS(PS0)</button><button type="button" data-cmd="PS1">SetPS(PS1)</button><button type="button" data-cmd="PS2">SetPS(PS2)</button><button type="button" data-cmd="PS3">SetPS(PS3)</button><button type="button" data-cmd="PS4">SetPS(PS4)</button></div>
+        <div class="cmd-row"><span class="lab">讀取</span><button type="button" data-cmd="get">GetReg（電流／溫度）</button><button type="button" data-cmd="reset">重設</button></div>
+        <div class="log" id="log" aria-live="polite"></div>
+      </div>
+      <div>
+        <div class="bigres" id="svRes"></div>
+        <div class="lamps" id="lamps" style="margin-bottom:6px"></div>
+      </div>
+    </div>
+    <div class="chart-title">SVID 匯流排（示意） <span class="en">Bus activity — packet shape is schematic, not the exact bit format</span></div>
+    <div class="chart-wrap"><svg id="cBus" class="chart" role="img" aria-label="SVID 三條訊號線示意"></svg></div>
+    <div class="chart-title">VCC_CORE 電壓 <span class="en">Core rail voltage (at no load)</span><span class="val" id="vNow"></span></div>
+    <div class="chart-wrap"><svg id="cV" class="chart" role="img" aria-label="核心電壓對時間"></svg></div>
+    <p class="lede" style="margin-top:8px">SetVID_Fast 要求至少 <b>10 mV/µs</b>、SetVID_Slow 至少 <b>2.5 mV/µs</b>（IMVP-7／IMVP8 控制器規格書；IMVP9 實際數值屬 Intel 文件）。電壓變 100 mV 至少要 10 µs——VID 是微秒等級的事件，奈秒級的負載變化靠電容（站 05）。SetVID_Decay 往下調時不主動拉低，讓負載自然放電，省去反向電流的損耗。
+      <span class="en">SetVID_Fast ≥ 10 mV/µs and SetVID_Slow ≥ 2.5 mV/µs; Decay lets the load discharge the rail.</span></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-ver">
+    <h2 id="h-ver"><span class="step">3</span>IMVP 版本與世代 <span class="en">IMVP versions, platforms and example controllers</span><span class="src ver">已查證</span></h2>
+    <div class="scroll-x">
+      <table class="tbl">
+        <thead><tr><th>規範</th><th>世代（依廠商資料推定）</th><th>依據與控制器例子</th></tr></thead>
+        <tbody>
+          <tr><td class="m">IMVP-7／VR12</td><td>第 2–3 代（Sandy／Ivy Bridge）前後</td><td>Renesas ISL95831、ISL95839 等「IMVP-7/VR12」控制器</td></tr>
+          <tr><td class="m">IMVP8</td><td><b>第 6 代 Skylake 起</b>（Kaby Lake 等沿用）</td><td>Skylake 把 Haswell／Broadwell 的 FIVR 移出，改回板端多軌 VRM；Renesas ISL95855 三軌（Core／GT／SA）、支援 PS4</td></tr>
+          <tr><td class="m">IMVP9</td><td>第 11 代（Rocket Lake-S、Tiger Lake）前後</td><td>Igor's Lab 指出 IMVP9.1 是相對於 Rocket Lake-S 的 IMVP9 改版；Renesas ISL95869（IMVP9，最多 3 相，R3 調變）</td></tr>
+          <tr><td class="m">IMVP9.1</td><td>第 12–13 代 Alder Lake／Raptor Lake</td><td>Richtek RT3628AE（雙軌、合計 1–8 相、G-NAVP、AQR 快速響應）；AOS AOZ71026QI（6 相，IMVP8／9／9.1／9.2）</td></tr>
+          <tr><td class="m">IMVP9.2</td><td>Core Ultra（Meteor Lake）世代</td><td>Richtek RT3638AE（8 相 VCCCORE＋單相 VCCGT＋單相 VCCSA，I²C 可設定自動加減相門檻）；onsemi NCP81538（5 輸出）</td></tr>
+          <tr><td class="m">IMVP9.3</td><td>更新世代</td><td>MPS MP29439-A 標示相容 IMVP9.3</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lede" style="margin-top:8px"><b>原稿修正</b>：原稿寫「IMVP8 用於第 8～11 代」，兩端都不對——IMVP8 從第 6 代開始，第 11 代已是 IMVP9。各版本對應的確切平台以 Intel 文件為準。
+      <span class="en">Correction: IMVP8 starts at 6th-gen Skylake; 11th gen already uses IMVP9.</span></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-diff">
+    <h2 id="h-diff"><span class="step">4</span>IMVP8 與 IMVP9.x 差異 <span class="en">What changed (corrected from the original notes)</span></h2>
+    <div class="scroll-x">
+      <table class="tbl">
+        <thead><tr><th>項目</th><th>IMVP8（第 6 代起）</th><th>IMVP9.x（第 11 代起，9.1＝ADL／RPL）</th></tr></thead>
+        <tbody>
+          <tr><td>處理器架構</td><td>傳統同質多核心</td><td>混合大小核（P＋E Core）與 Tile 封裝</td></tr>
+          <tr><td>電源軌</td><td>Core、GT、SA（三軌控制器）</td><td>Core、GT、SA 仍是主體；VCCIN_AUX 另由單相 Buck 供應，晶片內再用 FIVR／LDO 轉出</td></tr>
+          <tr><td>負載暫態</td><td>電流較小</td><td>Icc_max 更大（ADL-P 45W Core 達 120–160 A）、階躍更快；奈秒級由封裝與腔體電容負責，VRM 負責 µs 以上（原稿「奈秒級 di/dt」已修正）</td></tr>
+          <tr><td>電流偵測</td><td>大量採用電感 DCR＋RC 溫補</td><td>SPS IMON 比例提高；成本導向設計仍常用 DCR（原稿「全面轉向 SPS」已修正）</td></tr>
+          <tr><td>相數管理</td><td>PS 狀態＋控制器減相</td><td>更細緻的自動加減相，例如 RT3638AE 可經 I²C 設定門檻</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-notes">
+    <h2 id="h-notes"><span class="step">5</span>重點 <span class="en">Key points</span></h2>
+    <div class="note-key"><span><span class="src ver">已查證</span> 有公開資料佐證</span><span><span class="src add">補充</span> 一般電源設計知識整理</span></div>
+    <div class="ngroups">
+      <div class="ngroup" style="--c:var(--p1)">
+        <h3>SVID 三條線 <span class="en">The three wires</span></h3>
+        <ul>
+          <li><b>VCLK、VDIO、ALERT#</b><span class="src add">補充</span><br>CPU 是主控端，送時脈與指令；VDIO 雙向，也用來回傳暫存器資料；ALERT# 由 VR 拉低，告訴 CPU「電壓已到位」或狀態改變。<span class="en">CPU drives the clock; VDIO is bidirectional; ALERT# comes from the VR.</span></li>
+          <li><b>同一條匯流排、多個 VR 位址</b><span class="src ver">已查證</span><br>多軌控制器的每一軌有自己的位址，共用一組匯流排，比兩顆晶片省面積（Renesas ISL95855 等資料）。<span class="en">Each rail has its own address on the shared bus.</span></li>
+        </ul>
+      </div>
+      <div class="ngroup" style="--c:var(--ok)">
+        <h3>走線 <span class="en">Routing</span></h3>
+        <ul>
+          <li><b>參考地與遠離雜訊</b><span class="src add">補充</span><br>SVID 速度不高，重點是完整的參考地、遠離 SW 節點與電感、上拉電阻依規範；原稿說的「長度嚴格匹配、禁止打孔」是加分，不是必要。Intel PDG 的實際限制屬 NDA 文件，公開資料查不到。<span class="en">Solid reference ground and distance from switching nodes matter most.</span></li>
+        </ul>
+      </div>
+      <div class="ngroup" style="--c:var(--p4)">
+        <h3>其他平台 <span class="en">Other platforms</span></h3>
+        <ul>
+          <li><b>AMD SVI2／SVI3</b><span class="src add">補充</span><br>AMD 對應的是 Serial VID Interface，概念相同（CPU 數位告知 VRM 電壓與狀態），訊號定義與規範不同；MPS MP29439-A 這類控制器同時支援 IMVP9.3 與 SVI3〔已查證〕。<span class="en">AMD uses SVI2/SVI3; some controllers support both.</span></li>
+          <li><b>伺服器 VR13／VR14</b><span class="src add">補充</span><br>伺服器平台用 VR 系列規範，電流可達數百到上千安培，相數十幾相以上。<span class="en">Servers follow the VR13/VR14 specs.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-quiz">
+    <h2 id="h-quiz"><span class="step">6</span>小測驗 <span class="en">Quick check</span></h2>
+    <div class="quiz" id="quiz"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-abbr">
+    <h2 id="h-abbr"><span class="step">A</span>縮寫對照 <span class="en">Abbreviations used on this page — hover any dotted-underlined term for its full name</span></h2>
+    <div class="scroll-x" id="abbrTable"></div>
+  </section>
+<!--#FOOTER-->
+資料來源：IMVP 版本與控制器——Richtek RT3628AE／RT3638AE 產品頁、Renesas ISL95831／ISL95855／ISL95869 產品資料、AOS AOZ71026QI 新聞稿、onsemi NCP81538、MPS 處理器核心控制器頁、Igor's Lab（IMVP9.1 與 Rocket Lake IMVP9）；PS0–PS4 定義——Richtek AN051；SetVID 爬升速率——Renesas ISL95831 規格書。SVID 封包與 PS 狀態的電流門檻為示意（實際位元格式與門檻在 Intel 文件中）；模擬器的電壓爬升以最低速率計算，Decay 以固定負載放電示意。
+<br>Sources listed above; packet format and PS thresholds are schematic.
+<!--#SCRIPT-->
+(function(){
+  const RAILS = {
+    adl:[
+      {id:'core', name:'VCC_CORE（IA）', ph:'4–7 相', v:'約 0.6–1.4 V', ll:'2.3 mΩ（28W／45W）', icc:'85–160 A', col:'var(--p1)', txt:'P-core 與 E-core 的電源。電流最大、暫態最劇烈，相數最多（站 08）。coreboot 的 Intel 參考值：45W 為 120–160 A、28W 為 85–109 A。'},
+      {id:'gt', name:'VCC_GT', ph:'2–3 相', v:'依 VID', ll:'3.2 mΩ', icc:'40–55 A', col:'var(--p2)', txt:'Xe 內顯的電源，和 Core 共用同一顆雙軌／三軌控制器。ADL／RPL 的 GT Icc_max 為 55 A（15W 為 40 A）。'},
+      {id:'sa', name:'VCCSA', ph:'1 相', v:'依 VID', ll:'—', icc:'—', col:'var(--p3)', txt:'System Agent：記憶體控制器與 I/O。可能是三軌控制器的第三軌，也可能由其他電源供應。'},
+      {id:'aux', name:'VCCIN_AUX', ph:'獨立單相 Buck（不在 IMVP 控制器內）', v:'約 1.8 V', ll:'—', icc:'—', col:'var(--p5)', txt:'輔助輸入電源，供處理器內部的 FIVR／LDO 再轉出其他電壓；通常是另一顆獨立的單相 Buck（例如 TI TPS51215A 這類方案），不在 IMVP 多相控制器裡。'}
+    ],
+    mtl:[
+      {id:'core', name:'VCCCORE', ph:'多相（RT3638AE 最多 8 相）', v:'依 VID', ll:'—', icc:'公開資料未查到', col:'var(--p1)', txt:'Compute tile 的核心電源。查到的 IMVP9.2 控制器 Richtek RT3638AE 提供 8 相 VCCCORE。'},
+      {id:'gt', name:'VCCGT', ph:'1 相（RT3638AE）', v:'依 VID', ll:'—', icc:'公開資料未查到', col:'var(--p2)', txt:'Arc 內顯電源。RT3638AE 為單相 VCCGT；原稿說 Arc 內顯配 2–3 相，Meteor Lake GT 的 Icc_max 公開資料查不到，依 OEM 設計而定。'},
+      {id:'sa', name:'VCCSA', ph:'1 相（RT3638AE）', v:'依 VID', ll:'—', icc:'—', col:'var(--p3)', txt:'SoC tile 的 System Agent 電源；RT3638AE 為單相 VCCSA。'},
+      {id:'aux', name:'VCCIN_AUX', ph:'單相 Buck', v:'—', ll:'—', icc:'—', col:'var(--p5)', txt:'輔助輸入電源，晶片內部再轉換。Meteor Lake 以後電源軌的確切安排以 Intel PDG 為準。'}
+    ]
+  };
+  let GEN = 'adl', SEL = 'core';
+  segGroup('segGen', v => { GEN = v; drawMap(); }); setSeg('segGen', GEN);
+  function drawMap(){
+    const svg = $('map'), W = 620, H = 300; svg.innerHTML = ''; svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svgEl('rect', {x:430, y:30, width:170, height:240, rx:12, fill:'var(--paper-2)', stroke:'var(--ink)', 'stroke-width':2.5}, svg);
+    svgEl('text', {x:515, y:56, 'text-anchor':'middle', class:'lbl'}, svg, GEN === 'adl' ? 'CPU（ADL／RPL）' : 'CPU（MTL Tiles）');
+    svgEl('rect', {x:20, y:110, width:120, height:80, rx:10, fill:'var(--paper-2)', stroke:'var(--ink)', 'stroke-width':2}, svg);
+    svgEl('text', {x:80, y:140, 'text-anchor':'middle', class:'lbl'}, svg, GEN === 'adl' ? 'IMVP9.1' : 'IMVP9.2');
+    svgEl('text', {x:80, y:160, 'text-anchor':'middle', class:'lbl-sm'}, svg, '多軌 VR 控制器');
+    svgEl('text', {x:80, y:176, 'text-anchor':'middle', class:'lbl-sm'}, svg, GEN === 'adl' ? '如 RT3628AE' : '如 RT3638AE');
+    // SVID bus
+    ['VCLK', 'VDIO', 'ALERT#'].forEach((s, k) => {
+      const y = 250 + k * 14;
+      svgEl('path', {d:`M80 190V${y}H430`, class:'wire', stroke:'var(--p4)', 'stroke-dasharray':k === 2 ? '4 3' : ''}, svg);
+      svgEl('text', {x:300, y:y - 3, class:'tick', fill:'var(--p4)'}, svg, s);
+    });
+    RAILS[GEN].forEach((r, k) => {
+      const y = 40 + k * 52, g = svgEl('g', {class:'rail-box' + (r.id === SEL ? ' sel' : ''), tabindex:0, role:'button', 'aria-label':r.name}, svg);
+      const fromCtl = r.id !== 'aux';
+      svgEl('path', {d:fromCtl ? `M140 ${130 + k * 12}H170V${y + 20}H180` : `M170 ${y + 20}H180`, class:'wire', opacity:fromCtl ? 1 : 0}, svg);
+      svgEl('rect', {x:180, y, width:190, height:40, rx:8, fill:`color-mix(in srgb, ${r.col} 18%, var(--paper))`, stroke:r.col, 'stroke-width':2}, g);
+      svgEl('text', {x:192, y:y + 17, class:'lbl', fill:r.col}, g, r.name);
+      svgEl('text', {x:192, y:y + 33, class:'lbl-sm'}, g, r.ph);
+      svgEl('path', {d:`M370 ${y + 20}H430`, class:'wire', stroke:r.col, 'stroke-width':3}, svg);
+      g.addEventListener('click', () => { SEL = r.id; drawMap(); });
+      g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); SEL = r.id; drawMap(); } });
+    });
+    const r = RAILS[GEN].find(x => x.id === SEL);
+    $('railInfo').style.setProperty('--c', r.col);
+    $('railInfo').innerHTML = `<h3><span class="tag">${GEN === 'adl' ? 'IMVP9.1' : 'IMVP9.2'}</span>${r.name}</h3><p>${r.txt}</p>
+      <div class="kv"><div>常見相數<b>${r.ph}</b></div><div>電壓<b>${r.v}</b></div><div>Load-line<b>${r.ll}</b></div><div>Icc_max<b>${r.icc}</b></div></div>`;
+    abbrify(null, '#railInfo');
+  }
+
+  /* ---------- SVID simulator ---------- */
+  const S = {vid:0.90};
+  sliders([{k:'vid', zh:'目標電壓', en:'VID', min:0.5, max:1.4, step:0.005, fmt:v => v.toFixed(3) + ' V'}], S, $('pVid'), () => {});
+  const NPH = 4, TWIN = 200;           // µs window shown
+  let st, hist, bus;
+  function reset(){
+    st = {t:0, v:0.90, target:0.90, rate:0, mode:'idle', ps:'PS0', alert:false};
+    hist = [[0, 0.90]]; bus = []; $('log').textContent = ''; log('VR 上電：VID = 0.900 V，PS0（4 相）');
+  }
+  function log(s){ $('log').textContent = `[t=${fx(st.t, 1)} µs] ${s}\n` + $('log').textContent; }
+  function packet(kind){ bus.push({t:st.t, kind}); }
+  function cmd(c){
+    advance(3); // bus transaction time (schematic)
+    if (c === 'fast' || c === 'slow' || c === 'decay'){
+      st.target = S.vid; st.mode = c; st.rate = c === 'fast' ? 10 : c === 'slow' ? 2.5 : 0; st.alert = false;
+      packet('set');
+      const dv = Math.abs(st.target - st.v) * 1000;
+      log(`SetVID_${c === 'fast' ? 'Fast' : c === 'slow' ? 'Slow' : 'Decay'} → ${fx(st.target, 3)} V` + (c === 'decay' && st.target < st.v ? '（不主動拉低，靠負載放電）' : `（${fx(dv, 0)} mV，約 ${fx(dv / (st.rate || 2), 0)} µs）`));
+      if (c === 'decay' && st.target > st.v){ st.rate = 10; log('Decay 只用於往下調；往上時以 Fast 速率處理（示意）'); }
+    } else if (c.startsWith('PS')){
+      packet('ps'); st.ps = c;
+      if (c === 'PS0' && st.v < st.target) {}
+      log(`SetPS(${c})：${{PS0:'所有相運作', PS1:'只留一相', PS2:'單相二極體模擬（DCM）', PS3:'降低 VID、低靜態電流模式', PS4:'最低功耗狀態'}[c]}`);
+    } else if (c === 'get'){
+      packet('get');
+      const I = st.ps === 'PS0' ? 45 : st.ps === 'PS1' ? 12 : st.ps === 'PS2' ? 2 : 0.3;
+      log(`GetReg：IMON ≈ ${I} A、溫度 ≈ ${st.ps === 'PS0' ? 78 : 55} °C（示意值，VR 經 VDIO 回傳）`);
+    }
+    if (REDUCED) advance(Math.min(TWIN - 10, Math.abs(st.target - st.v) * 1000 / (st.rate || 2) + 10));
+    draw();
+  }
+  function advance(us){
+    const steps = Math.ceil(us / 0.5);
+    for (let k = 0; k < steps; k++){
+      const dt = us / steps;
+      st.t += dt;
+      if (st.v !== st.target){
+        if (st.mode === 'decay' && st.target < st.v){ st.v = st.target + (st.v - st.target) * Math.exp(-dt / 60); if (st.v - st.target < 0.002) st.v = st.target; }
+        else { const d = (st.rate || 10) * dt / 1000; st.v = st.v < st.target ? Math.min(st.target, st.v + d) : Math.max(st.target, st.v - d); }
+        if (st.v === st.target && !st.alert){ st.alert = true; bus.push({t:st.t, kind:'alert'}); log(`電壓到位 ${fx(st.v, 3)} V → VR 拉低 ALERT#`); }
+      }
+      hist.push([st.t, st.v]);
+    }
+    if (hist.length > 4000) hist = hist.filter(p => p[0] >= st.t - TWIN - 10);
+    if (bus.length > 200) bus = bus.filter(b => b.t >= st.t - TWIN - 10);
+  }
+  document.querySelectorAll('[data-cmd]').forEach(b => b.addEventListener('click', () => { if (b.dataset.cmd === 'reset'){ reset(); draw(); } else cmd(b.dataset.cmd); }));
+  let playing = true, last = 0;
+  function loop(ts){
+    if (last && !REDUCED){ const dt = Math.min(0.1, (ts - last) / 1000) * 20; advance(dt); draw(); }   // 20 µs of model time per second
+    last = ts; requestAnimationFrame(loop);
+  }
+  function draw(){
+    const t1 = Math.max(TWIN, st.t), t0 = t1 - TWIN;
+    const nOn = {PS0:NPH, PS1:1, PS2:1, PS3:1, PS4:0}[st.ps];
+    $('lamps').innerHTML = Array.from({length:NPH}, (_, k) => `<div class="lamp${k < nOn ? (st.ps === 'PS0' || st.ps === 'PS1' ? ' on' : ' dcm') : ''}" style="--c:${PH(k)}">${k + 1}</div>`).join('');
+    const c = (lab, val, sub, col) => `<div style="--c:${col}"><span>${lab}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    $('svRes').innerHTML = c('目前電壓', fx(st.v, 3) + ' V', `目標 ${fx(st.target, 3)} V`, 'var(--accent)') +
+      c('電源狀態', st.ps, `運作相數 ${nOn}`, 'var(--ok)') +
+      c('爬升速率', st.v === st.target ? '—' : (st.mode === 'decay' ? '負載放電' : (st.rate || 10) + ' mV/µs'), st.alert ? 'ALERT# 已拉低' : '', 'var(--p5)');
+    $('vNow').textContent = `${fx(st.v, 3)} V`;
+    // voltage chart
+    const pts = hist.filter(p => p[0] >= t0 - 1);
+    const vs = pts.map(p => p[1]).concat([st.target]);
+    const lo = Math.min(...vs) - 0.03, hi = Math.max(...vs) + 0.03;
+    const cv = chart($('cV'), {W:760, H:200, l:52, r:14, t:22, b:26, x:[t0, t1], y:[lo, hi], yf:v => fx(v, 2), xf:v => fx(v, 0), xlab:'t (µs)', ylab:'V'});
+    cv.hline(st.target, {class:'ref', stroke:'var(--muted)'});
+    cv.line(pts, {stroke:'var(--accent)', 'stroke-width':2.4});
+    // bus chart
+    const cb = chart($('cBus'), {W:760, H:120, l:52, r:14, t:14, b:22, x:[t0, t1], y:[0, 3], yt:[], xf:v => fx(v, 0)});
+    ['VCLK', 'VDIO', 'ALERT#'].forEach((s, k) => svgEl('text', {x:48, y:cb.Y(2.5 - k) + 4, 'text-anchor':'end', class:'tick', fill:'var(--p4)'}, $('cBus'), s));
+    bus.filter(b => b.t >= t0 - 5).forEach(b => {
+      if (b.kind === 'alert'){ svgEl('rect', {x:cb.X(b.t), y:cb.Y(0.85), width:Math.max(2, cb.X(b.t + 1.5) - cb.X(b.t)), height:cb.Y(0.15) - cb.Y(0.85), fill:'var(--warn)'}, $('cBus')); return; }
+      for (let k = 0; k < 24; k++) svgEl('rect', {x:cb.X(b.t + k * 0.12), y:cb.Y(2.85), width:Math.max(1, cb.X(b.t + k * 0.12 + 0.06) - cb.X(b.t + k * 0.12)), height:cb.Y(2.15) - cb.Y(2.85), fill:'var(--p4)'}, $('cBus'));
+      const col = b.kind === 'get' ? 'var(--ok)' : 'var(--p4)';
+      svgEl('rect', {x:cb.X(b.t), y:cb.Y(1.85), width:Math.max(3, cb.X(b.t + 3) - cb.X(b.t)), height:cb.Y(1.15) - cb.Y(1.85), fill:col, opacity:.8}, $('cBus'));
+      svgEl('text', {x:cb.X(b.t + 3) + 3, y:cb.Y(1.5) + 4, class:'tick', fill:col}, $('cBus'), {set:'SetVID', ps:'SetPS', get:'GetReg'}[b.kind]);
+    });
+  }
+
+  quiz($('quiz'), [
+    {q:'用 SetVID_Fast 把電壓從 0.70 V 拉到 1.10 V，至少需要多久？', opts:['約 40 ns', '約 40 µs', '約 4 ms'], a:1,
+     why:'400 mV ÷ 10 mV/µs = 40 µs。按模擬器試試看，原稿說「奈秒級調壓」是錯的。'},
+    {q:'ALERT# 是誰驅動的？', opts:['CPU', 'VR 控制器', '電源管理晶片'], a:1,
+     why:'CPU 驅動 VCLK 與送指令；ALERT# 由 VR 拉低，通知電壓已到位或狀態改變。'},
+    {q:'IMVP8 是從哪一代開始使用？', opts:['第 6 代 Skylake', '第 8 代 Coffee Lake', '第 11 代 Tiger Lake'], a:0,
+     why:'Skylake 把 FIVR 移出、改回板端多軌 VRM，搭配 IMVP8；第 11 代已改用 IMVP9。原稿「第 8～11 代」已修正。'}
+  ]);
+
+  reset(); drawMap(); draw();
+  requestAnimationFrame(loop);
+  abbrify($('abbrTable'));
+})();

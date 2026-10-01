@@ -1,0 +1,252 @@
+<!--#TITLE-->
+VRM 佈局與量測除錯
+<!--#H1-->
+佈局與量測除錯
+<!--#H1_EN-->
+Floorplan · hot loop · sensing · decoupling · checklist · bench debug
+<!--#CHIP-->
+Layout <span>→</span> Debug
+<!--#LEDE-->
+<p class="lede">前面八站的原理，最後都要落在 PCB（Printed Circuit Board）上。這一頁把多相 VRM 的佈局畫成一張可點擊的示意圖：點熱點看要注意什麼，切換「壞佈局」看常見錯誤長什麼樣；再用迴路電感估算器看層間距怎麼影響突波，最後是可以勾選的審查清單，以及上機量測與故障對照表。
+  <span class="en">Click the hotspots on a schematic VRM floorplan, toggle a bad layout to see common mistakes, estimate hot-loop inductance from the stack-up, and work through a review checklist and bench-debug tables.</span></p>
+<!--#STYLE-->
+#plan{min-width:640px}
+.hs{cursor:pointer}
+.hs circle{transition:r .15s}
+.hs:hover circle,.hs.sel circle{r:13}
+.ck-group{margin-bottom:12px}
+.ck-group h3{margin:0 0 6px;font-size:15px;border-bottom:2px solid var(--c);padding-bottom:2px}
+.ck-item{display:flex;gap:8px;align-items:flex-start;font-size:14px;padding:3px 0}
+.ck-item input{margin-top:4px;accent-color:var(--ok);width:16px;height:16px;flex:none}
+.ck-item.done span{color:var(--muted);text-decoration:line-through}
+.prog{height:12px;background:var(--paper-2);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.prog i{display:block;height:100%;background:var(--ok);transition:width .2s}
+.chart-wrap svg#cLoop{min-width:360px}
+<!--#BODY-->
+  <section class="panel" aria-labelledby="h-plan">
+    <h2 id="h-plan"><span class="step">1</span>佈局示意圖 <span class="en">Clickable floorplan (4-phase core rail)</span></h2>
+    <div class="ctl-row"><span class="lab">佈局 Layout</span>
+      <div class="seg" id="segBad" role="group" aria-label="佈局"><button type="button" data-v="good">好佈局 Good</button><button type="button" data-v="bad">壞佈局 Bad</button></div>
+      <span class="lab" style="margin-left:auto">點編號熱點看說明</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="chart-wrap"><svg id="plan" class="chart" role="img" aria-label="多相 VRM 佈局示意圖，含功率級、電感、電容、CPU socket 與控制器"></svg></div>
+      <div class="infobox" id="hsInfo"></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-loop">
+    <h2 id="h-loop"><span class="step">2</span>熱迴路電感估算 <span class="en">Hot-loop inductance from geometry and stack-up</span></h2>
+    <div class="grid-2">
+      <div>
+        <div class="params compact" id="pLoop"></div>
+        <div class="presets" id="loopPresets"><span>範例：</span></div>
+      </div>
+      <div>
+        <div class="bigres" id="loopRes"></div>
+        <div class="chart-wrap"><svg id="cLoop" class="chart" role="img" aria-label="估算的開關節點電壓"></svg></div>
+      </div>
+    </div>
+    <p class="lede" style="margin-top:8px">把熱迴路看成一段長 l、寬 w 的銅箔，電流經它下方距離 h 的地平面回流：L ≈ μ<sub>0</sub>·l·h／w。<b>迴路面積由 l × h 決定</b>——輸入 MLCC 緊貼功率級（l 小）、功率級正下方第二層是完整地平面（h 小），電感就小。第二層若被切開，回流只能繞到更深的層，h 變好幾倍。突波估算沿用站 03 的 RLC 模型。
+      <span class="en">L ≈ μ0·l·h/w for a strip over a return plane: keep the input MLCC close and a solid ground on layer 2.</span></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-ck">
+    <h2 id="h-ck"><span class="step">3</span>佈局審查清單 <span class="en">Review checklist — ticks are saved in this browser only</span></h2>
+    <div class="ctl-row"><div class="prog" style="flex:1"><i id="progBar"></i></div><span class="num" id="progTxt"></span><button type="button" id="ckReset">全部清除</button></div>
+    <div class="ngroups" id="ck"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-meas">
+    <h2 id="h-meas"><span class="step">4</span>上機量測 <span class="en">Bench measurements</span></h2>
+    <div class="scroll-x">
+      <table class="tbl">
+        <thead><tr><th>量什麼</th><th>怎麼量</th><th>看什麼</th><th>相關站</th></tr></thead>
+        <tbody>
+          <tr><td>SW 節點振鈴</td><td>短接地彈簧探棒，貼近低側 MOSFET 源極（PGND）量；不要用長接地夾</td><td>峰值是否超過 MOSFET 耐壓 80%；振鈴頻率與阻尼</td><td>03</td></tr>
+          <tr><td>相電流平衡</td><td>讀控制器各相 IMON，或在電感上用電流探棒</td><td>各相差異是否在目標內（例如 ±10%）</td><td>04</td></tr>
+          <tr><td>Load-line 與暫態</td><td>Intel VR 測試工具（VRTT 類）或主動負載，在 VCC_SENSE／VSS_SENSE 差分量</td><td>DC 斜率是否等於 R<sub>LL</sub>；加載下衝、卸載過衝是否在容差內</td><td>05</td></tr>
+          <tr><td>輸出漣波</td><td>VCC_SENSE 差分量，頻寬限制 20 MHz</td><td>漣波頻率應為 N × f<sub>sw</sub>；只有 (N − 1) 或出現 f<sub>sw</sub> 成分表示有相沒在工作</td><td>02</td></tr>
+          <tr><td>效率與切相</td><td>電子負載掃電流，量輸入／輸出功率；同時記錄 PS 狀態與運作相數</td><td>切相門檻附近效率是否平順、切相瞬間電壓是否在容差內</td><td>06</td></tr>
+          <tr><td>熱</td><td>紅外線熱像，滿載與 PL2 長時間</td><td>各相溫度是否一致；最熱點在電感還是功率級</td><td>01、04</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-fault">
+    <h2 id="h-fault"><span class="step">5</span>故障對照 <span class="en">Symptom → likely cause → first check</span></h2>
+    <div class="scroll-x">
+      <table class="tbl">
+        <thead><tr><th>症狀</th><th>可能原因</th><th>先查</th></tr></thead>
+        <tbody>
+          <tr><td>高負載當機、藍屏</td><td>下衝超出 load-line 容差；R<sub>LL</sub> 設錯；遠端感測接錯或被雜訊干擾</td><td>負載階躍時量 VCC_SENSE；確認感測線接到 CPU 專用腳位</td></tr>
+          <tr><td>某一相特別燙</td><td>均流失效、DCR 感測 RC 錯、該相走線電阻小、時序差</td><td>IMON 讀值、熱像、檢查 RC 與 NTC 位置</td></tr>
+          <tr><td>漣波頻率只有 (N − 1) × f<sub>sw</sub></td><td>某相沒在工作（功率級損壞或 PWM 斷線）</td><td>逐相量 SW 節點波形</td></tr>
+          <tr><td>輕載效率差、待機耗電高</td><td>沒進入 PS1／PS2；DCM 被關閉；切相門檻設定錯</td><td>SVID 指令紀錄、控制器設定</td></tr>
+          <tr><td>EMI 超標</td><td>熱迴路太大、SW 銅箔過大、第二層地平面被切開</td><td>近場探棒定位；檢查輸入 MLCC 位置與疊層</td></tr>
+          <tr><td>開機失敗或 VR_READY 不起來</td><td>SVID 通訊失敗（上拉、參考地、雜訊）；OCP 誤觸發</td><td>用示波器看 SVID 三條線；檢查 OCP 設定與電流感測</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-quiz">
+    <h2 id="h-quiz"><span class="step">6</span>小測驗 <span class="en">Quick check</span></h2>
+    <div class="quiz" id="quiz"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-abbr">
+    <h2 id="h-abbr"><span class="step">A</span>縮寫對照 <span class="en">Abbreviations used on this page — hover any dotted-underlined term for its full name</span></h2>
+    <div class="scroll-x" id="abbrTable"></div>
+  </section>
+<!--#FOOTER-->
+佈局圖為教學示意，元件位置與比例不代表實際產品。迴路電感以平行板近似 L ≈ μ<sub>0</sub>·l·h／w 估算，未含過孔與封裝電感；突波沿用站 03 的 RLC 模型（C<sub>sw</sub> 1.5 nF、R 150 mΩ、V<sub>in</sub> 12 V、反向恢復電流 10 A）。審查清單整理自原稿與一般 VRM 設計經驗；遠端感測接 CPU 專用 VCC_SENSE／VSS_SENSE 腳位為原稿修正項。勾選紀錄只存在本機瀏覽器。
+<br>Schematic floorplan; parallel-plate loop inductance; checklist ticks are stored locally in this browser.
+<!--#SCRIPT-->
+(function(){
+  const HS = [
+    {id:1, x:142, y:72, t:'熱迴路（輸入 MLCC → 功率級）', good:'每相的 12 V 輸入 MLCC（0402／0603）緊貼功率級的 VIN 與 PGND 腳，迴路面積最小；這是決定 EMI 基準的第一優先。', bad:'輸入電容放在遠處的 12 V 主幹上，熱迴路變成好幾 nH，SW 節點突波與振鈴大幅增加（站 03）。', ck:['輸入 MLCC 距 VIN／PGND 腳 ≤ 1–2 mm', 'PGND 以多顆過孔直接連到第二層地']},
+    {id:2, x:218, y:72, t:'SW 節點銅箔', good:'功率級到電感的 SW 銅箔在載流足夠的前提下短而集中；它有最高的 dv/dt，是主要雜訊源。', bad:'SW 銅箔拉得又長又大，變成天線，並把雜訊耦合到旁邊的感測線。', ck:['SW 銅箔面積最小化', 'SW 節點下方與鄰層不走敏感訊號']},
+    {id:3, x:300, y:345, t:'各相對稱', good:'各相從 12 V 輸入、功率級、電感到 CPU 的路徑長度與阻抗一致，靠近與遠離輸入端的相差異小。', bad:'第 4 相的路徑明顯比較長，DC 阻抗不同，電流與溫度分配不均（站 04）。', ck:['各相到 socket 的銅箔路徑長度與寬度一致', '各相元件方向與擺放一致']},
+    {id:4, x:345, y:72, t:'電感側聚合物電容', good:'聚合物電容（SP-CAP／POSCAP）放在電感輸出端與 socket 之間，提供大容量、撐到 VRM 迴路接手（站 05）。', bad:'聚合物電容數量不足或離負載太遠，中頻輸出阻抗高於 R<sub>LL</sub>。', ck:['聚合物電容放在電感輸出到 socket 的路徑上', '依輸出阻抗目標決定數量']},
+    {id:5, x:470, y:60, t:'Socket 周邊 MLCC', good:'Socket 四周的 0805／1206 MLCC 負責 100 kHz 到數 MHz 的暫態。', bad:'Socket 周邊電容太少，暫態時電壓超出 load-line。', ck:['MLCC 選型考慮直流偏壓降額後的有效容值', '過孔就近連到電源與地平面']},
+    {id:6, x:590, y:210, t:'Socket 背面腔體 MLCC', good:'BGA 正下方背面的 0402／0201 MLCC，ESL 最低，負責 1–100 MHz、奈秒到微秒級的負載突發。', bad:'腔體區沒有放電容（或被走線佔據），高頻阻抗只能靠封裝電容。', ck:['腔體區保留給高頻 MLCC', '電容與過孔配對，縮短電流路徑']},
+    {id:7, x:520, y:372, bx:400, by:150, t:'遠端感測 VCC_SENSE／VSS_SENSE', good:'感測線接 CPU 專用的 VCC_SENSE／VSS_SENSE 腳位，以差分對走到控制器，走內層並以地包覆。', bad:'感測線從 socket 外的電源銅箔取點，或貼著電感與 SW 節點走，量到的是錯的電壓且帶雜訊（原稿說「接到 BGA 球柱正下方」已修正為專用腳位）。', ck:['感測線接 CPU 專用 VCC_SENSE／VSS_SENSE 腳', '差分對、內層、地包覆、遠離 SW 節點']},
+    {id:8, x:112, y:262, bx:250, by:118, t:'電流感測／IMON 走線', good:'DCR 感測線從電感焊墊內側 Kelvin 引出、平行差分走到控制器；SPS 的 IMON 避開時脈與開關節點，控制器端加濾波（站 04）。', bad:'感測線與 SW 節點平行走一大段，雜訊直接進入均流與 OCP 判斷。', ck:['DCR 感測 Kelvin 連接、差分平行', 'NTC 貼近電感、熱耦合良好', 'IMON 在控制器端加濾波電容']},
+    {id:9, x:330, y:395, bx:230, by:205, t:'SVID 匯流排', good:'VCLK／VDIO／ALERT# 走在完整參考地上，遠離電感與 SW 節點，上拉依規範（站 07）。', bad:'SVID 穿過電感區與功率級下方，雜訊造成通訊錯誤、開機失敗。', ck:['SVID 有完整參考地', '遠離電感與 SW 節點', '上拉電阻依平台規範']},
+    {id:10, x:126, y:346, bx:290, by:106, t:'控制器位置', good:'控制器放在安靜區域，靠近感測線匯集處，遠離電感與功率級。', bad:'控制器夾在電感與功率級之間，所有類比訊號都在雜訊中。', ck:['控制器遠離功率級與電感', '控制器地以單點連到功率地']},
+    {id:11, x:132, y:196, t:'第二層完整地平面', good:'功率級正下方第二層是完整、未被切開的 PGND，迴流緊貼在熱迴路下方，降低迴路電感與輻射（第 2 區估算器）。', bad:'第二層被走線切開，回流繞到更深的層，迴路電感變成好幾倍。', ck:['功率級下方第二層為完整地', '第二層不走線切割熱迴路下方']},
+    {id:12, x:302, y:252, t:'散熱與銅箔', good:'功率級底部散熱焊盤以多顆過孔連到內層銅箔，大電流路徑用多層並聯；各相熱分布一致。', bad:'散熱過孔不足、電流路徑只靠單層，局部熱點集中在某一相。', ck:['功率級散熱焊盤過孔充足', '大電流路徑多層並聯、載流計算過']}
+  ];
+  let BAD = false, SEL = 1;
+  segGroup('segBad', v => { BAD = v === 'bad'; plan(); }); setSeg('segBad', 'good');
+  function plan(){
+    const svg = $('plan'), W = 760, H = 420; svg.innerHTML = ''; svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svgEl('rect', {x:4, y:4, width:W - 8, height:H - 8, rx:14, fill:'color-mix(in srgb, var(--ok) 10%, var(--paper))', stroke:'var(--line)', 'stroke-width':2}, svg);
+    // 12V input bus
+    svgEl('rect', {x:20, y:40, width:24, height:290, rx:4, fill:'color-mix(in srgb, var(--warn) 30%, var(--paper))'}, svg);
+    svgEl('text', {x:32, y:34, 'text-anchor':'middle', class:'lbl-sm'}, svg, '12 V');
+    // socket
+    svgEl('rect', {x:480, y:80, width:220, height:240, rx:10, fill:'var(--paper-2)', stroke:'var(--ink)', 'stroke-width':2.5}, svg);
+    svgEl('text', {x:590, y:110, 'text-anchor':'middle', class:'lbl'}, svg, 'CPU socket');
+    svgEl('rect', {x:540, y:160, width:100, height:100, rx:6, fill:'none', stroke:'var(--p1)', 'stroke-dasharray':'5 4', 'stroke-width':1.6}, svg);
+    if (!BAD) for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) svgEl('rect', {x:548 + i * 15, y:168 + j * 15, width:8, height:5, fill:'var(--p1)', opacity:.75}, svg);
+    svgEl('text', {x:590, y:278, 'text-anchor':'middle', class:'lbl-sm'}, svg, '背面腔體 MLCC');
+    const nPer = BAD ? 4 : 14;
+    for (let k = 0; k < nPer; k++){ const x = 488 + (k % 7) * 30, y = k < 7 ? 66 : 324; svgEl('rect', {x, y, width:14, height:8, rx:1, fill:'var(--p3)'}, svg); }
+    // phases
+    const rows = [80, 150, 220, 290];
+    rows.forEach((y, k) => {
+      const far = BAD && k === 3 ? 60 : 0;
+      const cinX = BAD ? 60 : 122;
+      // copper to socket
+      svgEl('path', {d:`M300 ${y + 14}H${330 + far}V${y + 14}H480`, stroke:`color-mix(in srgb, ${PH(k)} 45%, transparent)`, 'stroke-width':BAD && k === 3 ? 8 : 14, fill:'none'}, svg);
+      if (far) svgEl('path', {d:`M330 ${y + 14}V${y + 60}H420V${y + 14}`, stroke:`color-mix(in srgb, ${PH(k)} 45%, transparent)`, 'stroke-width':8, fill:'none'}, svg);
+      // 12V feed
+      svgEl('path', {d:`M44 ${y + 14}H150`, class:'wire', 'stroke-width':3}, svg);
+      // input MLCC
+      svgEl('rect', {x:cinX, y:y - 2, width:12, height:8, rx:1, fill:'var(--warn)'}, svg);
+      svgEl('rect', {x:cinX, y:y + 22, width:12, height:8, rx:1, fill:'var(--warn)'}, svg);
+      // SPS
+      svgEl('rect', {x:150, y, width:40, height:30, rx:4, fill:PH(k)}, svg);
+      svgEl('text', {x:170, y:y + 19, 'text-anchor':'middle', class:'sw-t', fill:'#fff'}, svg, 'SPS' + (k + 1));
+      // SW copper
+      svgEl('rect', {x:190, y:y + (BAD ? 0 : 9), width:BAD ? 50 : 26, height:BAD ? 30 : 12, fill:'var(--on)', opacity:.75}, svg);
+      // inductor
+      svgEl('rect', {x:BAD ? 240 : 216, y:y - 4, width:50, height:38, rx:6, fill:'var(--paper-2)', stroke:'var(--wire)', 'stroke-width':2}, svg);
+      svgEl('text', {x:(BAD ? 240 : 216) + 25, y:y + 19, 'text-anchor':'middle', class:'tick'}, svg, 'L' + (k + 1));
+      // polymer
+      if (!BAD || k % 2 === 0) svgEl('circle', {cx:345, cy:y + 14, r:10, fill:'var(--p2)', opacity:.85}, svg);
+    });
+    svgEl('text', {x:170, y:330, 'text-anchor':'middle', class:'lbl-sm'}, svg, '功率級');
+    svgEl('text', {x:345, y:330, 'text-anchor':'middle', class:'lbl-sm'}, svg, '聚合物電容');
+    // controller
+    const cx = BAD ? 296 : 40, cy = BAD ? 112 : 352;
+    svgEl('rect', {x:cx, y:cy, width:72, height:40, rx:6, fill:'var(--paper)', stroke:'var(--ink)', 'stroke-width':2}, svg);
+    svgEl('text', {x:cx + 36, y:cy + 25, 'text-anchor':'middle', class:'lbl-sm'}, svg, '控制器');
+    // remote sense pair
+    if (BAD) svgEl('path', {d:`M480 200H400V60H${cx + 72}`, fill:'none', stroke:'var(--p4)', 'stroke-width':2}, svg);
+    else { svgEl('path', {d:`M560 320V370H${cx + 72}`, fill:'none', stroke:'var(--p4)', 'stroke-width':2}, svg); svgEl('path', {d:`M570 320V376H${cx + 72}`, fill:'none', stroke:'var(--p4)', 'stroke-width':2}, svg); }
+    // SVID
+    svgEl('path', {d:BAD ? `M620 320V345H230V100` : `M640 320V400H${cx + 36}V${cy + 40}`, fill:'none', stroke:'var(--p5)', 'stroke-width':1.8, 'stroke-dasharray':'6 4'}, svg);
+    // current sense
+    [80, 150, 220, 290].forEach(y => svgEl('path', {d:BAD ? `M170 ${y + 30}V${y + 34}H300` : `M150 ${y + 24}H110V${y + 40}H${100}`, fill:'none', stroke:'var(--p6)', 'stroke-width':1.2, opacity:BAD ? 1 : .8}, svg));
+    if (!BAD) svgEl('path', {d:'M100 120V352', fill:'none', stroke:'var(--p6)', 'stroke-width':1.2}, svg);
+    // hotspots
+    HS.forEach(h => {
+      const g = svgEl('g', {class:'hs' + (h.id === SEL ? ' sel' : ''), tabindex:0, role:'button', 'aria-label':h.t}, svg);
+      const hx = BAD && h.bx ? h.bx : h.x, hy = BAD && h.by ? h.by : h.y;
+      svgEl('circle', {cx:hx, cy:hy, r:10, fill:BAD ? 'var(--warn)' : 'var(--accent)', stroke:'var(--paper)', 'stroke-width':2}, g);
+      svgEl('text', {x:hx, y:hy + 4, 'text-anchor':'middle', fill:'#fff', 'font-size':11, 'font-weight':800}, g, h.id);
+      const pick = () => { SEL = h.id; plan(); };
+      g.addEventListener('click', pick);
+      g.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); pick(); } });
+    });
+    const h = HS.find(x => x.id === SEL);
+    $('hsInfo').style.setProperty('--c', BAD ? 'var(--warn)' : 'var(--accent)');
+    $('hsInfo').innerHTML = `<h3><span class="tag">${h.id}</span>${h.t}</h3><p><b>${BAD ? '✗ 常見錯誤：' : '✓ 做法：'}</b>${BAD ? h.bad : h.good}</p>${BAD ? `<p style="color:var(--muted)"><b>正確做法：</b>${h.good}</p>` : ''}<ul>${h.ck.map(x => `<li>${x}</li>`).join('')}</ul>`;
+    abbrify(null, '#hsInfo');
+  }
+
+  /* ---------- loop inductance ---------- */
+  const Q = {l:3, w:4, h:3, tr:2};
+  const lDefs = [
+    {k:'l', zh:'迴路長度（輸入電容到功率級來回）', en:'l', min:1, max:30, step:0.5, fmt:v => v.toFixed(1) + ' mm'},
+    {k:'w', zh:'銅箔寬度', en:'w', min:1, max:10, step:0.5, fmt:v => v.toFixed(1) + ' mm'},
+    {k:'h', zh:'到回流地平面的介質厚度', en:'h', min:2, max:60, step:1, fmt:v => v.toFixed(0) + ' mil（' + (v * 0.0254).toFixed(2) + ' mm）'},
+    {k:'tr', zh:'切換時間', en:'tr', min:0.5, max:8, step:0.1, fmt:v => v.toFixed(1) + ' ns'}
+  ];
+  const ls = sliders(lDefs, Q, $('pLoop'), () => loop());
+  [['好：MLCC 緊貼、L2 完整地（3 mil）', {l:3, w:4, h:3}], ['L2 被切開，回流到 L4（20 mil）', {l:3, w:4, h:20}], ['MLCC 放遠 15 mm', {l:30, w:4, h:3}], ['兩者都犯', {l:30, w:4, h:20}]]
+    .forEach(([lab, v]) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = lab; b.addEventListener('click', () => { Object.assign(Q, v); ls(); loop(); }); $('loopPresets').appendChild(b); });
+  function loop(){
+    const mu0 = 4 * Math.PI * 1e-7, L = mu0 * (Q.l * 1e-3) * (Q.h * 0.0254e-3) / (Q.w * 1e-3) + 0.15e-9;   // + package / via share
+    const C = 1.5e-9, R = 0.15, vin = 12, tr = Q.tr * 1e-9, f0 = 1 / (2 * Math.PI * Math.sqrt(L * C));
+    const TE = Math.max(8 * tr, 12 / f0), dt = Math.min(1 / f0 / 200, tr / 50), NS = Math.ceil(TE / dt), every = Math.max(1, Math.floor(NS / 700));
+    let i = 0, v = 0, pk = 0, sn = false; const pts = [];
+    for (let s = 0; s <= NS; s++){ const t = s * dt, vs = vin * Math.min(1, t / tr); if (!sn && t >= tr){ i += 10; sn = true; } i += (vs - v - R * i) / L * dt; v += i / C * dt; pk = Math.max(pk, v); if (s % every === 0) pts.push([t * 1e9, v]); }
+    const c = chart($('cLoop'), {W:460, H:200, l:40, r:10, t:22, b:26, x:[0, TE * 1e9], y:[-2, Math.max(27, pk * 1.08)], yf:v => fx(v, 0), xf:v => fx(v, 0), xlab:'t (ns)', ylab:'V'});
+    c.hline(25, {class:'ref', stroke:'var(--warn)'}); c.hline(20, {class:'ref', stroke:'var(--muted)'});
+    c.line(pts, {stroke:'var(--on)', 'stroke-width':2.2});
+    const cc = (lab, val, sub, col) => `<div style="--c:${col}"><span>${lab}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    $('loopRes').innerHTML = cc('估算迴路電感', fx(L * 1e9, 2) + ' nH', '含封裝與過孔約 0.15 nH', 'var(--p5)') +
+      cc('SW 突波峰值', fx(pk, 1) + ' V', '25 V MOSFET 的 80% = 20 V', pk > 20 ? 'var(--warn)' : 'var(--ok)') +
+      cc('振鈴頻率', fx(f0 / 1e6, 0) + ' MHz', '', 'var(--p3)');
+  }
+
+  /* ---------- checklist ---------- */
+  const CK = [
+    ['功率迴路', 'var(--on)', ['每相輸入 MLCC 緊貼功率級 VIN／PGND', '功率級正下方第二層為完整地平面', 'PGND 多顆過孔直接連地', 'SW 節點銅箔最小化，下方不走敏感訊號']],
+    ['對稱與載流', 'var(--p1)', ['各相到 socket 的路徑長度與寬度一致', '大電流路徑多層並聯、載流與溫升計算過', '功率級散熱焊盤過孔充足']],
+    ['輸出電容', 'var(--p2)', ['電感側聚合物電容數量依阻抗目標決定', 'Socket 周邊 MLCC 計入直流偏壓降額', 'Socket 背面腔體 0402／0201 MLCC 已配置']],
+    ['感測與控制', 'var(--p4)', ['遠端感測接 CPU 專用 VCC_SENSE／VSS_SENSE 腳', '感測線為差分對、內層、地包覆、遠離 SW 節點', 'DCR 感測 Kelvin 連接、RC 與 L／DCR 匹配', 'NTC 貼近電感、熱耦合良好', 'IMON 走線避開雜訊，控制器端有濾波', '控制器放在安靜區域、遠離功率級']],
+    ['SVID 與系統', 'var(--p5)', ['SVID 三條線有完整參考地、遠離電感', 'SVID 上拉電阻依平台規範', 'Load-line（R<sub>LL</sub>）與 OCP 設定已核對平台規範']]
+  ];
+  const KEY = 'vrm-layout-checklist-v1';
+  let done = {};
+  try { done = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { done = {}; }
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify(done)); } catch (e) {} }
+  function ck(){
+    let n = 0, d = 0;
+    $('ck').innerHTML = CK.map(([g, col, items], gi) => `<div class="ck-group" style="--c:${col}"><h3>${g}</h3>` + items.map((t, ii) => {
+      const id = gi + '-' + ii; n++; if (done[id]) d++;
+      return `<label class="ck-item${done[id] ? ' done' : ''}"><input type="checkbox" data-id="${id}"${done[id] ? ' checked' : ''}><span>${t}</span></label>`;
+    }).join('') + '</div>').join('');
+    $('ck').querySelectorAll('input').forEach(i => i.addEventListener('change', e => { done[e.target.dataset.id] = e.target.checked; save(); ck(); }));
+    $('progBar').style.width = (d / n * 100) + '%'; $('progTxt').textContent = `${d}／${n}`;
+  }
+  $('ckReset').addEventListener('click', () => { done = {}; save(); ck(); });
+
+  quiz($('quiz'), [
+    {q:'熱迴路長度不變，第二層地平面被切開、回流改走 20 mil 下方的層（原本 4 mil），迴路電感約變成幾倍？', opts:['不變', '約 5 倍', '約 25 倍'], a:1,
+     why:'L ≈ μ<sub>0</sub>·l·h／w，與 h 成正比：20 ÷ 4 = 5 倍。用第 2 區的範例比較突波。'},
+    {q:'遠端感測線應該接到哪裡？', opts:['Socket 旁邊的電源銅箔', 'CPU 專用的 VCC_SENSE／VSS_SENSE 腳位', '輸出電感的輸出端'], a:1,
+     why:'CPU 提供專用感測腳位，在封裝內連到晶片上的量測點；從銅箔取點會把路徑 IR 壓降與雜訊算進去。原稿「接到 BGA 球柱正下方」已修正。'},
+    {q:'量 SW 節點振鈴時，為什麼要用短接地彈簧而不是長接地夾？', opts:['長接地夾會燒掉', '長接地夾本身的電感會和探棒電容形成振鈴，看到假的振鈴', '短接地彈簧頻寬比較低'], a:1,
+     why:'數 cm 的接地線就有數十 nH，數百 MHz 的振鈴會被量測迴路本身放大或扭曲。'}
+  ]);
+
+  plan(); loop(); ck();
+  abbrify($('abbrTable'));
+})();

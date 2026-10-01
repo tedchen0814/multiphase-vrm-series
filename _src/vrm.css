@@ -73,3 +73,11 @@ abbr[title]{text-decoration:underline dotted;text-underline-offset:3px;cursor:he
 .lamp.on{background:var(--c);border-color:var(--c);color:#fff}
 .lamp.dcm{background:repeating-linear-gradient(45deg,var(--c) 0 5px,transparent 5px 10px);border-color:var(--c);color:var(--ink)}
 .ps-chip{font-family:var(--display);font-weight:800;font-size:22px;letter-spacing:.06em;border:2.5px solid var(--c);color:var(--c);border-radius:8px;padding:2px 12px}
+.infobox{border:1.5px solid var(--c,var(--line));border-radius:12px;padding:12px 14px;background:var(--paper-2);min-height:150px}
+.infobox h3{margin:0 0 6px;font-size:17px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.infobox h3 .tag{font-size:12px;font-weight:800;border-radius:6px;padding:1px 8px;color:var(--paper);background:var(--c,var(--accent))}
+.infobox p{margin:0 0 6px;font-size:14px}
+.infobox ul{margin:4px 0 0;padding-left:18px;font-size:13.5px}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px 14px;margin-top:8px}
+.kv div{border-left:3px solid var(--c,var(--accent));padding:2px 0 2px 8px;font-size:13px;color:var(--muted)}
+.kv b{display:block;font-family:var(--mono);font-size:14px;color:var(--ink)}

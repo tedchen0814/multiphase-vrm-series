@@ -1,0 +1,227 @@
+<!--#TITLE-->
+DrMOS 與 SPS 功率級
+<!--#H1-->
+功率級：分離式 → DrMOS → SPS
+<!--#H1_EN-->
+Hot-loop inductance · switch-node ringing · dead time · die sizing
+<!--#CHIP-->
+V <span>=</span> L·di/dt
+<!--#LEDE-->
+<p class="lede">每一相的功率級是一顆驅動器加上高側（HS，High-Side）與低側（LS，Low-Side）兩顆 MOSFET（Metal-Oxide-Semiconductor Field-Effect Transistor）。數十安培在幾奈秒內切換，迴路上只要有 1 nH 的寄生電感，開關節點就會衝出好幾伏的突波並高頻振鈴。DrMOS（Driver-MOSFET，2004 年由 Intel 提出的規範）把三顆元件封裝在一起來縮小迴路；SPS（Smart Power Stage，智慧功率級）再加上電流與溫度感測。這一頁模擬振鈴、死區時間，以及為什麼兩顆 MOSFET 大小不一樣。
+  <span class="en">A power stage is a driver plus high- and low-side MOSFETs. With tens of amps switching in nanoseconds, 1 nH of loop inductance gives volts of overshoot and ringing. DrMOS integrates the three parts to shrink the loop; SPS adds current and temperature sensing.</span></p>
+<!--#STYLE-->
+.chart-wrap svg#cDead,.chart-wrap svg#cArea,.chart-wrap svg#cRing{min-width:360px}
+<!--#BODY-->
+  <section class="panel" aria-labelledby="h-ring">
+    <h2 id="h-ring"><span class="step">1</span>開關節點振鈴 <span class="en">Switch-node ringing when the high-side turns on</span></h2>
+    <div class="grid-2">
+      <div>
+        <svg viewBox="0 0 420 200" class="chart" role="img" aria-label="熱迴路：輸入電容、高側 MOSFET、低側 MOSFET 形成的高頻迴路">
+          <path class="hot" d="M60 40H250V170H60Z"/>
+          <text x="155" y="190" class="hot-label" text-anchor="middle">熱迴路 Hot loop：C<tspan font-size="9" dy="3">in</tspan><tspan dy="-3"> → HS → LS → PGND</tspan></text>
+          <path class="wire" d="M60 40H200M200 40V62M200 92V112M200 142V170M60 170H200M60 40V92M60 118V170M200 102H330"/>
+          <path class="plate" d="M46 92H74M46 100H74"/><path class="wire" d="M60 100V118"/>
+          <rect x="180" y="62" width="40" height="30" rx="4" class="term"/><text x="200" y="81" class="sw-t" text-anchor="middle">HS</text>
+          <rect x="180" y="112" width="40" height="30" rx="4" class="term"/><text x="200" y="131" class="sw-t" text-anchor="middle">LS</text>
+          <circle cx="200" cy="102" r="3.5" class="node"/>
+          <path class="wire" d="M330 102h12a7 6 0 0 1 14 0a7 6 0 0 1 14 0a7 6 0 0 1 14 0h20"/>
+          <text x="22" y="100" class="lbl">C<tspan font-size="10" dy="3">in</tspan></text>
+          <text x="230" y="96" class="lbl-sm">SW 節點</text>
+          <text x="360" y="90" class="lbl-sm">L → V<tspan font-size="9" dy="3">out</tspan></text>
+          <text x="110" y="30" class="lbl-sm">寄生電感 L<tspan font-size="9" dy="3">loop</tspan><tspan dy="-3"> 分布在整個迴路</tspan></text>
+        </svg>
+        <div class="params compact" id="pRing" style="margin-top:8px"></div>
+        <div class="presets" id="presets"><span>範例 Presets：</span></div>
+      </div>
+      <div>
+        <div class="badges" id="badges"></div>
+        <div class="bigres" id="bigres"></div>
+        <div class="chart-title">SW 節點電壓 <span class="en">Switch-node voltage</span></div>
+        <div class="chart-wrap"><svg id="cRing" class="chart" role="img" aria-label="開關節點電壓振鈴波形"></svg></div>
+        <div class="mini-legend"><span><i style="color:var(--on)"></i>SW 節點電壓</span><span><i class="dash" style="color:var(--warn)"></i>MOSFET 耐壓</span><span><i class="dash" style="color:var(--muted)"></i>耐壓 80%（常見降額）</span></div>
+      </div>
+    </div>
+    <p class="lede" style="margin-top:10px">高側導通時，低側體二極體的反向恢復電流 I<sub>rr</sub> 會先在迴路電感裡多存一份能量，二極體一關斷就全部倒進開關節點電容，額外突波約 I<sub>rr</sub>·√(L／C)——這就是迴路電感越大突波越高的主因。寄生電感與低側 MOSFET 的輸出電容形成 LC 諧振：振鈴頻率 f = 1／(2π√(L·C))，常在數百 MHz，是輻射 EMI（Electromagnetic Interference，電磁干擾）的主要來源。切換越快（t<sub>r</sub> 越短）激發越強；迴路電感越小，突波越低、頻率越高也越容易被濾掉。
+      <span class="en">Loop inductance and the low-side output capacitance resonate at hundreds of MHz. Faster edges excite more ringing; smaller loops reduce it.</span></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-cmp">
+    <h2 id="h-cmp"><span class="step">2</span>三代功率級比較 <span class="en">Discrete vs DrMOS vs SPS</span></h2>
+    <div class="scroll-x">
+      <table class="tbl">
+        <thead><tr><th>項目</th><th>分離式（Driver＋2 顆 FET）</th><th>DrMOS</th><th>SPS（Smart Power Stage）</th></tr></thead>
+        <tbody>
+          <tr><td>封裝</td><td>3 顆元件</td><td>1 顆 QFN（常見 5×5、4×5、5×6 mm）</td><td>1 顆 QFN（例如 5×6 mm）</td></tr>
+          <tr><td>閘極與熱迴路</td><td>PCB 走線，nH 級</td><td>封裝內部連接，大幅縮短</td><td>同 DrMOS</td></tr>
+          <tr><td>電流感測</td><td>外部 DCR 或電阻</td><td>外部 DCR</td><td>內建電流鏡，輸出 IMON（站 04）</td></tr>
+          <tr><td>溫度感測</td><td>板端 NTC</td><td>板端 NTC（部分型號有 TMON）</td><td>內建，輸出 TMON</td></tr>
+          <tr><td>保護</td><td>由控制器處理</td><td>基本 OTP、直通保護</td><td>逐週期 OCP、故障回報</td></tr>
+          <tr><td>公開規格例子</td><td>—</td><td>—</td><td>Renesas ISL99390（90 A）／ISL99380（80 A），IMON ±3%；AOS AOZ52178QI，IMON 5 mV/A、典型 5% <span class="src ver">已查證</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="panel" aria-labelledby="h-dead">
+      <h2 id="h-dead"><span class="step">3</span>死區時間 <span class="en">Dead time: too long wastes power, too short shoots through</span></h2>
+      <div class="params compact" id="pDead"></div>
+      <div class="chart-wrap" style="margin-top:8px"><svg id="cDead" class="chart" role="img" aria-label="死區時間與損耗"></svg></div>
+      <div class="mini-legend"><span><i style="color:var(--p6)"></i>體二極體導通損耗</span><span><i style="color:var(--p4)"></i>反向恢復 Q<sub>rr</sub> 損耗</span><span><i style="color:var(--warn)"></i>直通風險區</span></div>
+      <p class="lede" style="margin-top:6px">高側關、低側開之間如果兩顆都不導通，電感電流只能走低側的體二極體（壓降約 0.7 V），死區越長損耗越大；體二極體導通過後再打開高側，還要付出反向恢復電荷 Q<sub>rr</sub>·V<sub>in</sub>·f<sub>sw</sub>。死區太短則兩顆可能同時導通（直通，shoot-through）。整合驅動器可以依實際切換狀態自適應調整死區。
+        <span class="en">Long dead time means body-diode conduction and reverse recovery; too short risks shoot-through. Integrated drivers adapt it.</span></p>
+    </section>
+    <section class="panel" aria-labelledby="h-area">
+      <h2 id="h-area"><span class="step">4</span>為什麼高側小、低側大 <span class="en">Splitting a fixed silicon area between HS and LS</span></h2>
+      <div class="params compact" id="pArea"></div>
+      <div class="chart-wrap" style="margin-top:8px"><svg id="cArea" class="chart" role="img" aria-label="高側面積比例與總損耗"></svg></div>
+      <div class="mini-legend"><span><i style="color:var(--on)"></i>高側損耗（導通＋切換＋閘極）</span><span><i style="color:var(--off)"></i>低側損耗</span><span><i style="color:var(--ink)"></i>合計</span></div>
+      <p class="lede" style="margin-top:6px">晶片面積越大，R<sub>DS(on)</sub> 越小，但閘極電荷與切換時間越大。12 V → 1 V 時高側只導通約 8% 的時間，卻承擔全部的切換損耗，所以高側要「小而快」；低側導通 92% 的時間，要「大而低阻」。調低 V<sub>out</sub> 看最佳比例怎麼移動。
+        <span class="en">At low duty the high side is small and fast, the low side large and low-resistance.</span></p>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-notes">
+    <h2 id="h-notes"><span class="step">5</span>重點與原稿修正 <span class="en">Key points and corrections</span></h2>
+    <div class="note-key"><span><span class="src ver">已查證</span> 有公開資料佐證</span><span><span class="src add">補充</span> 一般電源設計知識整理</span><span><span class="src pdf">修正</span> 修正原稿說法</span></div>
+    <div class="ngroups">
+      <div class="ngroup" style="--c:var(--p1)">
+        <h3>DrMOS 帶來什麼 <span class="en">What DrMOS buys</span></h3>
+        <ul>
+          <li><b>迴路縮到封裝裡</b><span class="src add">補充</span><br>驅動器到閘極、高側到低側的連接都在封裝內，寄生電感大幅下降；PCB 上剩下的關鍵是輸入 MLCC 到 DrMOS VIN／PGND 腳的距離。<span class="en">The remaining loop on the PCB is the input MLCC to the VIN/PGND pins.</span></li>
+          <li><b>省面積、佈局對稱</b><span class="src add">補充</span><br>三顆變一顆，多相佈局更規整，各相路徑也更容易做成一致（站 09）。<span class="en">One part per phase makes symmetric layouts easier.</span></li>
+        </ul>
+      </div>
+      <div class="ngroup" style="--c:var(--ok)">
+        <h3>SPS 再多什麼 <span class="en">What SPS adds</span></h3>
+        <ul>
+          <li><b>IMON 電流與 TMON 溫度</b><span class="src ver">已查證</span><br>公開規格的 IMON 精度約 ±3%（Renesas）到典型 5%（AOS），不受電感公差與溫度影響（站 04）。<span class="en">IMON ±3% to typical 5% in public specs.</span></li>
+          <li><b>逐週期過流保護與故障回報</b><span class="src add">補充</span><br>每一相自己偵測過流、過溫並回報控制器，多相系統比較容易定位是哪一相出問題。<span class="en">Per-phase protection and fault reporting.</span></li>
+        </ul>
+      </div>
+      <div class="ngroup" style="--c:var(--p4)">
+        <h3>原稿修正 <span class="en">Corrections</span></h3>
+        <ul>
+          <li><b>「DrMOS 可在 1 MHz 以上高效率運作」</b><span class="src pdf">修正</span><br>可以跑，但筆電與伺服器 VRM 實務多在 300 kHz–1 MHz，取決於效率與暫態的取捨；不要以為 DrMOS 就等於 MHz 級。<span class="en">Practical VRMs run 300 kHz–1 MHz.</span></li>
+          <li><b>「SPS 精度可達 ±2%」</b><span class="src pdf">修正</span><br>公開規格是 ±3% 到典型 5%，依型號而定。<span class="en">Public specs are ±3% to typical 5%.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-quiz">
+    <h2 id="h-quiz"><span class="step">6</span>小測驗 <span class="en">Quick check</span></h2>
+    <div class="quiz" id="quiz"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-abbr">
+    <h2 id="h-abbr"><span class="step">A</span>縮寫對照 <span class="en">Abbreviations used on this page — hover any dotted-underlined term for its full name</span></h2>
+    <div class="scroll-x" id="abbrTable"></div>
+  </section>
+<!--#FOOTER-->
+計算模型：(1) 振鈴：高側通道電壓在 t<sub>r</sub> 內由 0 線性升到 V<sub>in</sub>，經串聯 R、L<sub>loop</sub> 對開關節點電容 C<sub>sw</sub> 充電（二階 RLC，數值積分），在 t<sub>r</sub> 結束時把反向恢復電流 I<sub>rr</sub> 加到迴路電流上（二極體瞬間關斷的簡化），未含 MOSFET 非線性電容；(2) 死區：體二極體損耗 = V<sub>F</sub>·(I<sub>off</sub> + I<sub>on</sub>)·t<sub>dt</sub>·f<sub>sw</sub>，Q<sub>rr</sub> 損耗 = Q<sub>rr</sub>·V<sub>in</sub>·f<sub>sw</sub>（Q<sub>rr</sub> 隨二極體導通時間增加而趨近上限，示意）；(3) 面積分配：R<sub>DS(on)</sub> ∝ 1／面積、Q<sub>g</sub> 與切換時間 ∝ 面積。所有元件參數為示意值。SPS 規格來源：Renesas ISL99390／ISL99380、AOS AOZ52178QI 產品資料。
+<br>Models: RLC ringing with a ramped source; dead-time body-diode and Qrr loss; RDS(on) ∝ 1/area and Qg ∝ area. Illustrative values.
+<!--#SCRIPT-->
+(function(){
+  /* ---------- 1. ringing ---------- */
+  const P = {vin:12, lloop:1.0, csw:1.5, rd:0.15, tr:2, irr:10, vds:25};
+  const defs = [
+    {k:'vin', zh:'輸入電壓', en:'Vin', min:5, max:20, step:0.5, fmt:v => v.toFixed(1) + ' V'},
+    {k:'lloop', zh:'熱迴路寄生電感', en:'Lloop', min:0.1, max:4, step:0.05, fmt:v => v.toFixed(2) + ' nH'},
+    {k:'csw', zh:'開關節點電容', en:'Csw (LS Coss)', min:0.3, max:4, step:0.05, fmt:v => v.toFixed(2) + ' nF'},
+    {k:'rd', zh:'迴路阻尼電阻', en:'R', min:0.02, max:1.5, step:0.01, fmt:v => (v * 1000).toFixed(0) + ' mΩ'},
+    {k:'tr', zh:'高側導通時間（上升）', en:'tr', min:0.3, max:10, step:0.1, fmt:v => v.toFixed(1) + ' ns'},
+    {k:'irr', zh:'低側體二極體反向恢復電流', en:'Irr', min:0, max:30, step:1, fmt:v => v.toFixed(0) + ' A'},
+    {k:'vds', zh:'MOSFET 耐壓', en:'VDS rating', min:20, max:40, step:5, fmt:v => v.toFixed(0) + ' V'}
+  ];
+  const sync = sliders(defs, P, $('pRing'), () => ring());
+  [['分離式（L ≈ 2.5 nH）', {lloop:2.5, rd:0.2, tr:2}], ['DrMOS（L ≈ 0.8 nH）', {lloop:0.8, rd:0.15, tr:2}],
+   ['DrMOS＋MLCC 緊貼 VIN／PGND（L ≈ 0.4 nH）', {lloop:0.4, rd:0.12, tr:2}], ['切換更快 t<sub>r</sub> = 0.8 ns', {tr:0.8}], ['放慢切換 t<sub>r</sub> = 5 ns', {tr:5}]]
+  .forEach(([lab, v]) => { const b = document.createElement('button'); b.type = 'button'; b.innerHTML = lab; b.addEventListener('click', () => { Object.assign(P, v); sync(); ring(); }); $('presets').appendChild(b); });
+  function ring(){
+    const L = P.lloop * 1e-9, C = P.csw * 1e-9, R = P.rd, tr = P.tr * 1e-9;
+    const f0 = 1 / (2 * Math.PI * Math.sqrt(L * C)), z0 = Math.sqrt(L / C), zeta = R / (2 * z0);
+    const TE = Math.max(8 * tr, 12 / f0), dt = Math.min(1 / f0 / 200, tr / 50), NS = Math.ceil(TE / dt), every = Math.max(1, Math.floor(NS / 900));
+    let i = 0, v = 0, pk = 0, snapped = false; const pts = [];
+    for (let s = 0; s <= NS; s++){
+      const t = s * dt, vs = P.vin * Math.min(1, t / tr);
+      if (!snapped && t >= tr){ i += P.irr; snapped = true; }   // diode snaps off: the reverse-recovery current left in Lloop dumps into Csw
+      i += (vs - v - R * i) / L * dt; v += i / C * dt;
+      pk = Math.max(pk, v);
+      if (s % every === 0) pts.push([t * 1e9, v]);
+    }
+    const c = chart($('cRing'), {W:460, H:240, l:40, r:10, t:22, b:26, x:[0, TE * 1e9], y:[-2, Math.max(P.vds * 1.08, pk * 1.08)], yf:v => fx(v, 0), xf:v => fx(v, 0), xlab:'t (ns)', ylab:'V'});
+    c.hline(P.vds, {class:'ref', stroke:'var(--warn)'}); c.hline(P.vds * 0.8, {class:'ref', stroke:'var(--muted)'});
+    c.hline(P.vin, {stroke:'var(--line)', 'stroke-width':1});
+    c.line(pts, {stroke:'var(--on)', 'stroke-width':2.2});
+    const cc = (lab, val, sub, col) => `<div style="--c:${col}"><span>${lab}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    $('bigres').innerHTML =
+      cc('突波峰值', fx(pk, 1) + ' V', `超出 V<sub>in</sub> ${fx(pk - P.vin, 1)} V`, pk > 0.8 * P.vds ? 'var(--warn)' : 'var(--ok)') +
+      cc('振鈴頻率', fx(f0 / 1e6, 0) + ' MHz', `特性阻抗 Z<sub>0</sub> = √(L／C) = ${fx(z0 * 1000, 0)} mΩ`, 'var(--p5)') +
+      cc('I<sub>rr</sub> 造成的額外突波', '≈ ' + fx(P.irr * z0, 1) + ' V', 'I<sub>rr</sub> × Z<sub>0</sub>：迴路電感越大越高', 'var(--p4)') +
+      cc('阻尼比 ζ', fx(zeta, 2), zeta < 0.3 ? '欠阻尼，振很久' : '阻尼足夠', 'var(--p3)');
+    const b = [];
+    b.push(pk > P.vds ? '<span class="badge warn">突波超過 MOSFET 耐壓</span>' : pk > 0.8 * P.vds ? '<span class="badge warn">突波超過耐壓 80%</span>' : '<span class="badge ok">突波在耐壓 80% 以內</span>');
+    b.push(`<span class="badge info">Coss 每次切換損失 ½·C·V² × f：600 kHz 時約 ${fx(0.5 * C * P.vin * P.vin * 6e5 * 1000, 0)} mW</span>`);
+    $('badges').innerHTML = b.join('');
+  }
+
+  /* ---------- 3. dead time ---------- */
+  const Q = {iph:25, dI:10, fsw:600, qrr:30, tdt:10};
+  const dDefs = [
+    {k:'iph', zh:'每相電流', en:'Iph', min:5, max:50, step:1, fmt:v => v.toFixed(0) + ' A'},
+    {k:'qrr', zh:'體二極體 Q<sub>rr</sub>（上限）', en:'Qrr', min:5, max:80, step:1, fmt:v => v.toFixed(0) + ' nC'},
+    {k:'tdt', zh:'目前死區時間', en:'Dead time', min:0, max:40, step:0.5, fmt:v => v.toFixed(1) + ' ns'}
+  ];
+  sliders(dDefs, Q, $('pDead'), () => dead());
+  function deadLoss(t){
+    const f = Q.fsw * 1e3, ioff = Q.iph + Q.dI / 2, ion = Math.abs(Q.iph - Q.dI / 2);
+    const diode = 0.7 * (ioff + ion) * t * 1e-9 * f;
+    const qrr = Q.qrr * 1e-9 * (1 - Math.exp(-t / 6)) * 12 * f;
+    return {diode, qrr, tot:diode + qrr};
+  }
+  function dead(){
+    const pts = []; for (let t = 0; t <= 40; t += 0.5) pts.push([t, deadLoss(t)]);
+    const ym = Math.max(...pts.map(p => p[1].tot)) * 1.15;
+    const c = chart($('cDead'), {W:460, H:230, l:44, r:10, t:22, b:26, x:[0, 40], y:[0, ym], yf:v => fx(v, 2), xlab:'死區 t_dt (ns)', ylab:'W'});
+    svgEl('rect', {x:c.X(0), y:22, width:c.X(3) - c.X(0), height:230 - 22 - 26, fill:'var(--warn)', opacity:.18}, $('cDead'));
+    c.text(1.5, ym * 0.92, '直通風險', {class:'tag-t', 'text-anchor':'middle'});
+    c.line(pts.map(p => [p[0], p[1].diode]), {stroke:'var(--p6)'});
+    c.line(pts.map(p => [p[0], p[1].qrr]), {stroke:'var(--p4)'});
+    c.line(pts.map(p => [p[0], p[1].tot]), {stroke:'var(--ink)', 'stroke-width':2.6});
+    const d = deadLoss(Q.tdt);
+    c.vline(Q.tdt, {stroke:'var(--accent)', 'stroke-width':2});
+    c.text(Q.tdt, d.tot, `${fx(d.tot * 1000, 0)} mW`, {class:'tag-t', dx:6, dy:-6});
+  }
+
+  /* ---------- 4. die area split ---------- */
+  const A = {vout:1.0, iph:25};
+  sliders([{k:'vout', zh:'輸出電壓（決定 D）', en:'Vout, Vin = 12 V', min:0.6, max:6, step:0.05, fmt:v => v.toFixed(2) + ' V'},
+           {k:'iph', zh:'每相電流', en:'Iph', min:5, max:50, step:1, fmt:v => v.toFixed(0) + ' A'}], A, $('pArea'), () => area());
+  function area(){
+    const vin = 12, D = A.vout / vin, f = 6e5, r0 = 0.25e-3, ts0 = 12e-9, q0 = 60e-9, I = A.iph;
+    const hs = x => D * I * I * r0 / x + vin * I * f * ts0 * x + q0 * x * 5 * f;
+    const ls = x => (1 - D) * I * I * r0 / (1 - x) + q0 * (1 - x) * 5 * f;
+    const pts = []; let best = [0, 1e9];
+    for (let x = 0.03; x <= 0.97; x += 0.005){ const t = hs(x) + ls(x); pts.push([x * 100, hs(x), ls(x), t]); if (t < best[1]) best = [x, t]; }
+    const ym = Math.min(Math.max(...pts.map(p => p[3])), best[1] * 4);
+    const c = chart($('cArea'), {W:460, H:230, l:44, r:10, t:22, b:26, x:[0, 100], y:[0, ym], yf:v => fx(v, 1), xf:v => v + '%', xlab:'高側面積比例', ylab:'W'});
+    c.line(pts.map(p => [p[0], p[1]]), {stroke:'var(--on)'});
+    c.line(pts.map(p => [p[0], p[2]]), {stroke:'var(--off)'});
+    c.line(pts.map(p => [p[0], p[3]]), {stroke:'var(--ink)', 'stroke-width':2.6});
+    c.vline(best[0] * 100, {class:'ref', stroke:'var(--ok)'});
+    c.text(best[0] * 100, ym * 0.9, `最佳：高側約 ${fx(best[0] * 100, 0)}%（D = ${fx(D, 2)}）`, {class:'tag-t', dx:6});
+  }
+
+  quiz($('quiz'), [
+    {q:'熱迴路寄生電感從 2.5 nH 降到 0.4 nH，振鈴頻率會？', opts:['變低', '變高（約 2.5 倍）', '不變'], a:1,
+     why:'f = 1／(2π√(LC))，L 變成 1／6.25，頻率變 √6.25 = 2.5 倍；同時突波變小。'},
+    {q:'DrMOS 之後，PCB 上對振鈴影響最大的是？', opts:['控制器的位置', '輸入 MLCC 到 DrMOS VIN／PGND 腳的距離與 L2 地平面', '輸出電感的感值'], a:1,
+     why:'驅動與上下橋已在封裝內，板上剩下的熱迴路就是輸入電容→VIN→PGND；電容要緊貼，下方第二層要完整地平面（站 09）。'},
+    {q:'12 V → 1 V 的同步 Buck，為什麼低側 MOSFET 的晶片面積比較大？', opts:['低側承受較高電壓', '低側導通約 92% 的時間，導通損耗主導，需要低 R<sub>DS(on)</sub>', '低側需要更快的切換'], a:1,
+     why:'低佔空比時低側幾乎一直導通，所以要大面積、低阻；高側導通時間短但負責切換，要小面積、低 Q<sub>g</sub>。'}
+  ]);
+
+  ring(); dead(); area();
+  abbrify($('abbrTable'));
+})();
