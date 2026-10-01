@@ -125,7 +125,20 @@ const ABBR = [
   ['fsw', 'Switching Frequency', '每相開關頻率'],
   ['fc', 'Crossover Frequency (loop bandwidth)', '控制迴路頻寬'],
   ['DrMOS', 'Driver-MOSFET', '驅動 IC 與高／低側 MOSFET 整合封裝'],
-  ['SPS', 'Smart Power Stage', '智慧功率級：DrMOS 再整合電流與溫度感測']
+  ['SPS', 'Smart Power Stage', '智慧功率級：DrMOS 再整合電流與溫度感測'],
+  ['Coss', 'Output Capacitance (of a MOSFET)', 'MOSFET 輸出電容，每次切換都要充放電'],
+  ['DEM', 'Diode Emulation Mode', '二極體模擬模式：電感電流降到零就關低側，等同 DCM'],
+  ['PS0', 'Power State 0', 'SVID 電源狀態 0：所有相全開'],
+  ['PS1', 'Power State 1', 'SVID 電源狀態 1：只留一相'],
+  ['PS2', 'Power State 2', 'SVID 電源狀態 2：單相二極體模擬（DCM）'],
+  ['PS3', 'Power State 3', 'SVID 電源狀態 3：降低 VID、控制器低靜態電流'],
+  ['PS4', 'Power State 4', 'SVID 電源狀態 4：最低功耗狀態'],
+  ['PL1', 'Power Limit 1', 'Intel 長時間功耗上限（約等於 TDP）'],
+  ['PL2', 'Power Limit 2', 'Intel 短時間（數十秒）功耗上限'],
+  ['DCR', 'DC Resistance', '電感直流電阻'],
+  ['I2C', 'Inter-Integrated Circuit', '雙線序列匯流排'],
+  ['Qg', 'Gate Charge', 'MOSFET 閘極電荷'],
+  ['SPM', 'Smart Phase Management', 'Richtek 的自動加減相功能（可經 I2C 設定門檻）']
 ];
 /* wrap abbreviations in <abbr title> inside the given selectors, and fill a glossary table with the ones found */
 function abbrify(tableBox, selectors = '.panel, .lede, footer'){
@@ -152,3 +165,39 @@ function abbrify(tableBox, selectors = '.panel, .lede, footer'){
   if (tableBox) tableBox.innerHTML = '<table class="tbl"><thead><tr><th>縮寫 Abbr.</th><th>完整英文名稱 Full name</th><th>中文說明</th></tr></thead><tbody>' +
     ABBR.filter(a => found.has(a[0])).map(a => `<tr><td class="m">${a[0]}</td><td>${a[1]}</td><td>${a[2]}</td></tr>`).join('') + '</tbody></table>';
 }
+/* ---------- per-phase buck loss model (shared by stations 01 and 06) ----------
+   p: {vin, vout, fsw kHz, L nH, rhs, rls, dcr mΩ, tsw ns (each edge), qg nC (HS+LS), vdrv V, coss pF, tdt ns, pq W}
+   N phases sharing I amps; dcm = allow diode emulation (pulse skipping) when the phase current is below ΔI/2 */
+function buckLoss(p, N, I, dcm = false){
+  const f = p.fsw * 1e3, D = p.vout / p.vin, Iph = I / N;
+  const dI = (p.vin - p.vout) * D / (p.L * 1e-9 * f);
+  const Rpath = (D * p.rhs + (1 - D) * p.rls + p.dcr) * 1e-3;
+  let k = 1, irms2, iOff, iOn;
+  if (dcm && Iph < dI / 2){           // DCM: triangular pulses of peak dI, fired k·fsw times per second
+    k = Math.max(1e-6, 2 * Iph / dI);
+    irms2 = k * dI * dI / 3; iOff = dI; iOn = 0;
+  } else {
+    irms2 = Iph * Iph + dI * dI / 12; iOff = Iph + dI / 2; iOn = Math.max(0, Iph - dI / 2);
+  }
+  const fe = k * f;
+  const ph = {
+    cond: irms2 * Rpath,
+    sw: 0.5 * p.vin * (iOff + iOn) * p.tsw * 1e-9 * fe,
+    gate: p.qg * 1e-9 * p.vdrv * fe,
+    coss: 0.5 * p.coss * 1e-12 * p.vin * p.vin * fe,
+    dead: 0.7 * p.tdt * 1e-9 * fe * (iOff + Math.abs(Iph - dI / 2) * (k < 1 ? 0 : 1)),
+    q: p.pq
+  };
+  ph.total = ph.cond + ph.sw + ph.gate + ph.coss + ph.dead + ph.q;
+  const tot = {}; for (const key in ph) tot[key] = ph[key] * N;
+  const pout = p.vout * I;
+  return {N, I, Iph, D, dI, k, fe, dcm: k < 1, ph, tot, pout, eff: pout / (pout + tot.total), ton: D / f};
+}
+const LOSS_PARTS = [
+  ['cond', '導通損耗 I²R', 'Conduction', 'var(--p1)'],
+  ['sw', '切換損耗', 'Switching (V·I overlap)', 'var(--p2)'],
+  ['gate', '閘極驅動', 'Gate drive Qg·V·f', 'var(--p3)'],
+  ['coss', 'Coss 充放電', 'Output capacitance', 'var(--p5)'],
+  ['dead', '死區體二極體', 'Dead-time body diode', 'var(--p6)'],
+  ['q', '靜態損耗', 'Quiescent', 'var(--muted)']
+];

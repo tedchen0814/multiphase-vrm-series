@@ -1,0 +1,300 @@
+<!--#TITLE-->
+效率與相數切換
+<!--#H1-->
+效率與相數切換
+<!--#H1_EN-->
+Efficiency curves · phase shedding · DCM · PS0–PS4
+<!--#CHIP-->
+N <span>↓</span> 輕載
+<!--#LEDE-->
+<p class="lede">多相在重載時省下導通損耗，但 CPU 大部分時間其實在待機或輕載，這時每一相的閘極驅動、Coss 充放電與靜態損耗都在白白消耗。解法是<b>相數切換（Phase Shedding）</b>：負載輕就關掉幾相，更輕時剩一相改用 <b>DCM</b>（Discontinuous Conduction Mode，非連續導通）讓開關頻率跟著降低。Intel 平台由 CPU 透過 SVID（Serial Voltage Identification）的 SetPS 指令通知 VRM 進入 PS0–PS4 電源狀態，控制器本身也會依電流自動加減相。
+  <span class="en">Most of the time a CPU idles. Extra phases then only add gate, Coss and quiescent losses. Phase shedding drops phases at light load and runs the last phase in DCM; the CPU signals expected load through SVID SetPS (PS0–PS4) while the controller also adds and drops phases on its own.</span></p>
+<!--#STYLE-->
+#cEff{min-width:620px}
+.chart-wrap svg#cBrk{min-width:380px}
+<!--#BODY-->
+  <section class="panel" aria-labelledby="h-param">
+    <h2 id="h-param"><span class="step">1</span>設定 <span class="en">Inputs</span></h2>
+    <div class="grid-2">
+      <div>
+        <div class="grp-title">相數與負載 Phases &amp; load</div><div class="params compact" id="pLoad"></div>
+        <div class="ctl-row" style="margin-top:12px"><span class="lab">輕載模式 Light-load mode</span>
+          <div class="seg" id="segDcm" role="group" aria-label="輕載模式"><button type="button" data-v="1">允許單相 DCM（PS2）</button><button type="button" data-v="0">強制 PWM（不允許 DCM）</button></div></div>
+      </div>
+      <div>
+        <div class="grp-title">功率級元件（DrMOS 示意值）Power stage</div><div class="params compact" id="pDev"></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="grid-2">
+    <section class="panel" aria-labelledby="h-res">
+      <h2 id="h-res"><span class="step">2</span>目前負載的最佳選擇 <span class="en">Best operating mode at the selected load</span></h2>
+      <div class="badges" id="badges"></div>
+      <div class="bigres" id="bigres"></div>
+    </section>
+    <section class="panel" aria-labelledby="h-brk">
+      <h2 id="h-brk"><span class="step">3</span>各選項損耗組成 <span class="en">Loss breakdown of every option (W)</span></h2>
+      <div class="chart-wrap"><svg id="cBrk" class="chart" role="img" aria-label="各相數選項的損耗組成"></svg></div>
+      <div class="mini-legend" id="legBrk"></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="h-eff">
+    <h2 id="h-eff"><span class="step">4</span>效率曲線與切相門檻 <span class="en">Efficiency vs load current — the envelope is what phase shedding follows</span></h2>
+    <div class="chart-wrap"><svg id="cEff" class="chart" role="img" aria-label="各相數的效率對負載電流曲線"></svg></div>
+    <div class="mini-legend" id="legEff"></div>
+    <div class="scroll-x" style="margin-top:10px"><table class="tbl" id="tblTh"></table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-anim">
+    <h2 id="h-anim"><span class="step">5</span>負載情境動畫 <span class="en">A 30-second usage profile: idle → browsing → burst → render → idle</span></h2>
+    <div class="controls">
+      <button type="button" class="primary" id="btnPlay">❚❚ 暫停 Pause</button>
+      <div class="scrub"><span>時間</span><input type="range" id="scrub" min="0" max="1000" step="1" aria-label="時間 Time"><span class="num" id="tRead"></span></div>
+    </div>
+    <div class="vs" style="display:flex;flex-wrap:wrap;gap:14px 28px;align-items:center;margin-bottom:8px">
+      <div><div class="grp-title" style="margin:0 0 6px">運作中的相 Active phases</div><div class="lamps" id="lamps"></div></div>
+      <div><div class="grp-title" style="margin:0 0 6px">電源狀態 Power state</div><span class="ps-chip" id="psChip">PS0</span></div>
+      <div class="bigres" id="animRes" style="flex:1;min-width:260px;margin:0"></div>
+    </div>
+    <div class="chart-title">負載電流與運作相數 <span class="en">Load current and active phases</span></div>
+    <div class="chart-wrap"><svg id="cProf" class="chart" role="img" aria-label="負載電流與運作相數對時間"></svg></div>
+    <div class="mini-legend"><span><i style="color:var(--accent)"></i>負載電流</span><span><i style="color:var(--p2)"></i>運作相數（右側刻度，0.5 = 單相 DCM）</span></div>
+    <div class="chart-title">VRM 損耗 <span class="en">VRM loss: all phases always on vs shedding</span></div>
+    <div class="chart-wrap"><svg id="cLoss" class="chart" role="img" aria-label="固定全相與切相的損耗對時間"></svg></div>
+    <div class="mini-legend"><span><i style="color:var(--warn)"></i>全相常開（強制 PWM）</span><span><i style="color:var(--ok)"></i>相數切換＋DCM</span></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-ps">
+    <h2 id="h-ps"><span class="step">6</span>Intel 的 PS0–PS4 電源狀態 <span class="en">SVID power states</span></h2>
+    <div class="scroll-x">
+      <table class="tbl">
+        <thead><tr><th>狀態</th><th>VRM 的動作</th><th>對應本頁模型</th></tr></thead>
+        <tbody>
+          <tr><td class="m">PS0</td><td>所有相一起運作，提供全部電流能力</td><td>N 相強制 PWM（控制器仍可依電流自行減相）</td></tr>
+          <tr><td class="m">PS1</td><td>只留一相，其他相關閉，減少切換損耗</td><td>1 相強制 PWM</td></tr>
+          <tr><td class="m">PS2</td><td>剩下的那一相從強制 PWM 改成二極體模擬模式（DEM），輕載時切換頻率跟著下降</td><td>1 相 DCM</td></tr>
+          <tr><td class="m">PS3</td><td>VID 電壓降低，控制器進入低靜態電流模式</td><td>本頁未模擬</td></tr>
+          <tr><td class="m">PS4</td><td>最低功耗狀態（VR12.6 世代控制器典型靜態功耗約 0.25 mW；IMVP8 控制器也支援）</td><td>本頁未模擬</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lede" style="margin-top:8px">定義依 Richtek 應用筆記 AN051 與 Renesas ISL95855 等 IMVP8 控制器資料〔已查證〕；各狀態對應的負載電流門檻由 Intel 平台規範定義，公開資料查不到。
+      <span class="en">Definitions from Richtek AN051 and IMVP8 controller datasheets; the current thresholds are in Intel's non-public specifications.</span></p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-notes">
+    <h2 id="h-notes"><span class="step">7</span>重點與實務 <span class="en">Key points and practice</span></h2>
+    <div class="note-key"><span><span class="src ver">已查證</span> 有公開資料佐證</span><span><span class="src add">補充</span> 一般電源設計知識整理</span><span><span class="src pdf">修正</span> 修正原稿說法</span></div>
+    <div class="ngroups">
+      <div class="ngroup" style="--c:var(--p1)">
+        <h3>為什麼有最佳相數 <span class="en">Why an optimum N exists</span></h3>
+        <ul>
+          <li><b>兩種損耗互相拉扯</b><span class="src add">補充</span><br>導通損耗總和 ∝ I²／N，相數多比較省；閘極驅動、Coss、靜態損耗 ∝ N，相數少比較省。把各 N 的效率曲線疊起來取上緣（包絡線），每個交叉點就是切相門檻。<span class="en">The crossings of the curves are the shedding thresholds.</span></li>
+          <li><b>DCM 讓輕載效率大幅提升</b><span class="src add">補充</span><br>強制 PWM 時，即使負載只有 1 A，電感電流仍在 ±ΔI<sub>L</sub>／2 之間來回，每個週期都在切換；DCM 等電流歸零就停，平均開關頻率隨負載降低，固定損耗跟著縮小。<span class="en">DCM lets the effective switching frequency fall with load.</span></li>
+        </ul>
+      </div>
+      <div class="ngroup" style="--c:var(--ok)">
+        <h3>實際控制器怎麼做 <span class="en">What real controllers do</span></h3>
+        <ul>
+          <li><b>兩條路徑並存</b><span class="src pdf">修正</span><br>原稿只寫「控制器根據即時電流增減相數」。實際上 CPU 也會透過 SVID 的 SetPS 主動告知預期負載（PS0–PS4），控制器同時依 IMON 電流自動加減相，兩者並存。<span class="en">CPU-commanded PS states and controller-side auto shedding coexist.</span></li>
+          <li><b>可設定的切相門檻</b><span class="src ver">已查證</span><br>例如 Richtek RT3638AE（IMVP9.2）的 Smart Phase Management 可經 I²C 設定自動加減相的電流門檻。<span class="en">e.g. Richtek RT3638AE exposes the add/drop thresholds over I²C.</span></li>
+          <li><b>加相要快、減相要慢</b><span class="src add">補充</span><br>負載突增時若還停在少相數，會先由電容撐、電壓下衝；所以控制器偵測到大電流或收到 PS0 會立刻全相恢復，減相則加上遲滯與延遲，避免在門檻附近來回切換。<span class="en">Add phases immediately, drop them with hysteresis and delay.</span></li>
+        </ul>
+      </div>
+      <div class="ngroup" style="--c:var(--p4)">
+        <h3>設計與驗證 <span class="en">Design and validation</span></h3>
+        <ul>
+          <li><b>門檻要用實測效率曲線決定</b><span class="src add">補充</span><br>本頁模型只示意趨勢；實際門檻要用電子負載在各相數下量效率，考慮電感溫度與 R<sub>DS(on)</sub> 溫漂後再設定。<span class="en">Set thresholds from measured efficiency curves.</span></li>
+          <li><b>驗證切相瞬間的電壓</b><span class="src add">補充</span><br>在門檻附近做負載階躍，量 VCC_SENSE 看加相過程的下衝是否仍在 Load-line 容差內（站 05）。<span class="en">Check the transient while phases are being added (station 05).</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-quiz">
+    <h2 id="h-quiz"><span class="step">8</span>小測驗 <span class="en">Quick check</span></h2>
+    <div class="quiz" id="quiz"></div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-abbr">
+    <h2 id="h-abbr"><span class="step">A</span>縮寫對照 <span class="en">Abbreviations used on this page — hover any dotted-underlined term for its full name</span></h2>
+    <div class="scroll-x" id="abbrTable"></div>
+  </section>
+<!--#FOOTER-->
+計算模型與站 01 相同（導通、切換、閘極、Coss、死區、靜態損耗）。DCM 以「每個脈衝峰值為 ΔI<sub>L</sub> 的三角波、平均頻率 = f<sub>sw</sub> × 2·I<sub>ph</sub>／ΔI<sub>L</sub>」近似，只在每相電流低於 ΔI<sub>L</sub>／2 時套用。每相電流超過上限的選項不列入。情境動畫的切相沒有遲滯與延遲（實際控制器會有），負載曲線按「安裝相數 × 每相上限」等比例縮放。元件參數為示意值；PS 狀態定義來源：Richtek AN051、Renesas ISL95855；RT3638AE 資料來源：Richtek 產品頁。
+<br>Same loss model as station 01. DCM is approximated by triangular pulses of peak ΔIL at a reduced average frequency. No hysteresis in the animation.
+<!--#SCRIPT-->
+(function(){
+  const P = {nmax:4, ilim:30, iload:2, vin:12, vout:1.0, fsw:600, L:150, rhs:3, rls:1, dcr:0.2, tsw:3, qg:30, vdrv:5, coss:1500, tdt:5, pq:0.03};
+  let DCM = true;
+  const G = {
+    pLoad:[
+      {k:'nmax', zh:'安裝相數', en:'Installed phases', min:1, max:8, step:1, fmt:v => v.toFixed(0) + ' 相'},
+      {k:'ilim', zh:'每相電流上限', en:'Max current per phase', min:10, max:60, step:1, fmt:v => v.toFixed(0) + ' A'},
+      {k:'iload', zh:'目前負載電流', en:'Load current', min:0.2, max:480, step:0.1, fmt:v => fx(v, v < 10 ? 1 : 0) + ' A'},
+      {k:'vout', zh:'輸出電壓', en:'Vout', min:0.6, max:1.5, step:0.01, fmt:v => v.toFixed(2) + ' V'}
+    ],
+    pDev:[
+      {k:'fsw', zh:'每相開關頻率', en:'fsw', min:200, max:1500, step:50, fmt:v => v.toFixed(0) + ' kHz'},
+      {k:'L', zh:'每相電感', en:'L', min:47, max:470, step:1, fmt:v => v.toFixed(0) + ' nH'},
+      {k:'rls', zh:'低側 R<sub>DS(on)</sub>', en:'RLS', min:0.3, max:5, step:0.05, fmt:v => v.toFixed(2) + ' mΩ'},
+      {k:'tsw', zh:'切換時間（每邊）', en:'tsw', min:1, max:15, step:0.5, fmt:v => v.toFixed(1) + ' ns'},
+      {k:'qg', zh:'閘極電荷（高＋低側）', en:'Qg', min:5, max:100, step:1, fmt:v => v.toFixed(0) + ' nC'},
+      {k:'coss', zh:'Coss', en:'Output capacitance', min:200, max:5000, step:50, fmt:v => v.toFixed(0) + ' pF'},
+      {k:'pq', zh:'每相靜態損耗', en:'Quiescent', min:0, max:0.2, step:0.01, fmt:v => (v * 1000).toFixed(0) + ' mW'}
+    ]
+  };
+  const syncs = Object.keys(G).map(id => sliders(G[id], P, $(id), () => { clamp(); draw(); }));
+  const syncAll = () => syncs.forEach(s => s());
+  function clamp(){ const mx = P.nmax * P.ilim; if (P.iload > mx) P.iload = mx; }
+  segGroup('segDcm', v => { DCM = v === '1'; draw(); });
+  setSeg('segDcm', '1');
+  $('legBrk').innerHTML = LOSS_PARTS.map(x => `<span><i style="color:${x[3]}"></i>${x[1]}</span>`).join('');
+
+  /* options available at load I */
+  function options(I){
+    const o = [];
+    for (let n = 1; n <= P.nmax; n++) if (I / n <= P.ilim) o.push(Object.assign(buckLoss(P, n, I, false), {label:`${n} 相 PWM`, key:'n' + n}));
+    if (DCM && I <= P.ilim){ const d = buckLoss(P, 1, I, true); if (d.dcm) o.push(Object.assign(d, {label:'1 相 DCM', key:'dcm'})); }
+    return o;
+  }
+  const best = I => options(I).reduce((a, b) => b.tot.total < a.tot.total ? b : a);
+  const psOf = b => b.key === 'dcm' ? 'PS2' : b.N === 1 ? 'PS1' : 'PS0';
+  const PSC = {PS0:'var(--p1)', PS1:'var(--p2)', PS2:'var(--ok)'};
+
+  function draw(){ cards(); drawBrk(); drawEff(); buildProfile(); paint(); }
+  function cards(){
+    const os = options(P.iload), b = os.reduce((a, x) => x.tot.total < a.tot.total ? x : a);
+    const all = os.find(x => x.key === 'n' + P.nmax) || os[os.length - 1];
+    const c = (lab, val, sub, col) => `<div style="--c:${col || 'var(--accent)'}"><span>${lab}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    $('bigres').innerHTML =
+      c('最佳模式', b.label, `電源狀態 ${psOf(b)}`, PSC[psOf(b)]) +
+      c('最佳效率', fx(b.eff * 100, 1) + ' %', `損耗 ${fx(b.tot.total, 3)} W`, 'var(--ok)') +
+      c(`全部 ${P.nmax} 相強制 PWM`, fx(all.eff * 100, 1) + ' %', `損耗 ${fx(all.tot.total, 3)} W`, 'var(--warn)') +
+      c('切相省下', fx(all.tot.total - b.tot.total, 3) + ' W', `${fx((1 - b.tot.total / all.tot.total) * 100, 0)}% 的 VRM 損耗`, 'var(--p5)') +
+      c('輸出功率', fx(P.vout * P.iload, P.iload < 10 ? 2 : 0) + ' W', `每相電流 ${fx(b.Iph, 1)} A`, 'var(--p3)') +
+      (b.dcm ? c('DCM 平均開關頻率', fx(b.fe / 1e3, 0) + ' kHz', `PWM 時為 ${P.fsw} kHz`, 'var(--p6)') : '');
+    const bd = [];
+    bd.push(`<span class="badge info">${os.length} 個可行選項（每相 ≤ ${P.ilim} A）</span>`);
+    if (P.iload > 0.7 * P.nmax * P.ilim) bd.push('<span class="badge warn">接近全相電流上限</span>');
+    $('badges').innerHTML = bd.join('');
+  }
+  function drawBrk(){
+    const os = options(P.iload), b = os.reduce((a, x) => x.tot.total < a.tot.total ? x : a);
+    const H = 40 + os.length * 30, mx = Math.max(...os.map(o => o.tot.total)) * 1.15;
+    const svg = $('cBrk');
+    const c = chart(svg, {W:520, H, l:92, r:16, t:22, b:24, x:[0, mx], y:[0, os.length], yt:[], xf:v => fx(v, v < 1 ? 2 : 1), xlab:'W'});
+    os.forEach((o, i) => {
+      const y = c.Y(os.length - i) + 5, h = c.Y(0) - c.Y(1) - 10; let acc = 0;
+      svgEl('text', {x:86, y:y + h / 2 + 4, 'text-anchor':'end', class:'tick', fill:o === b ? 'var(--ok)' : 'var(--muted)', 'font-weight':o === b ? 800 : 500}, svg, (o === b ? '★ ' : '') + o.label);
+      LOSS_PARTS.forEach(([k, , , col]) => { const v = o.tot[k]; svgEl('rect', {x:c.X(acc), y, width:Math.max(0, c.X(acc + v) - c.X(acc)), height:h, fill:col, opacity:o === b ? 1 : .6}, svg); acc += v; });
+      svgEl('text', {x:c.X(acc) + 4, y:y + h / 2 + 4, class:'tick'}, svg, fx(acc, acc < 1 ? 3 : 2));
+    });
+  }
+  function drawEff(){
+    const imax = P.nmax * P.ilim, i0 = 0.2;
+    const xs = []; for (let j = 0; j <= 360; j++) xs.push(i0 * Math.pow(imax / i0, j / 360));
+    const dec = []; for (let d = 0.1; d <= imax * 1.01; d *= 10) [1, 2, 5].forEach(m => { const v = d * m; if (v >= i0 && v <= imax) dec.push(+v.toPrecision(2)); });
+    const c = chart($('cEff'), {W:760, H:320, l:48, r:14, t:22, b:28, logx:true, x:[i0, imax], xt:dec, xf:v => v, xlab:'負載電流 A（對數）', y:[40, 100], yt:[40, 50, 60, 70, 80, 90, 100], yf:v => v + '%', ylab:'效率'});
+    const leg = [];
+    for (let n = 1; n <= P.nmax; n++){
+      const pts = xs.filter(I => I / n <= P.ilim).map(I => [I, buckLoss(P, n, I).eff * 100]);
+      c.line(pts, {stroke:PH(n - 1), 'stroke-width':1.4, opacity:.75});
+      leg.push(`<span><i style="color:${PH(n - 1)}"></i>${n} 相 PWM</span>`);
+    }
+    if (DCM){
+      const pts = xs.filter(I => I <= P.ilim).map(I => [I, buckLoss(P, 1, I, true).eff * 100]);
+      c.line(pts, {stroke:'var(--ok)', 'stroke-width':1.6, 'stroke-dasharray':'6 4'});
+      leg.push('<span><i class="dash" style="color:var(--ok)"></i>1 相 DCM</span>');
+    }
+    // envelope + thresholds
+    const env = [], th = []; let prev = null;
+    xs.forEach(I => { const b = best(I); env.push([I, b.eff * 100]); if (prev && b.key !== prev.key) th.push([I, prev, b]); prev = b; });
+    c.line(env, {stroke:'var(--ink)', 'stroke-width':3.2, opacity:.85});
+    leg.push('<span><i style="color:var(--ink)"></i>包絡線（相數切換）</span>');
+    th.forEach(([I]) => c.vline(I, {class:'ref', stroke:'var(--muted)'}));
+    c.vline(P.iload, {stroke:'var(--accent)', 'stroke-width':2});
+    const bl = best(P.iload);
+    svgEl('circle', {cx:c.X(P.iload), cy:c.Y(bl.eff * 100), r:6, fill:'var(--paper)', stroke:'var(--accent)', 'stroke-width':3}, $('cEff'));
+    $('legEff').innerHTML = leg.join('');
+    let h = '<thead><tr><th>負載電流範圍</th><th>最佳模式</th><th>電源狀態</th></tr></thead><tbody>';
+    const edges = [i0, ...th.map(t => t[0]), imax];
+    const modes = [best(i0), ...th.map(t => t[2])];
+    modes.forEach((m, i) => { h += `<tr${m.key === bl.key ? ' class="hl"' : ''}><td class="m">${fx(edges[i], edges[i] < 10 ? 1 : 0)} – ${fx(edges[i + 1], edges[i + 1] < 10 ? 1 : 0)} A</td><td>${m.label}</td><td class="m">${psOf(m)}</td></tr>`; });
+    $('tblTh').innerHTML = h + '</tbody>';
+  }
+
+  /* ---------- usage profile animation ---------- */
+  const TT = 30;
+  const SEG = [[0, 1.2], [4, 12], [6, 3], [7, 60], [9, 100], [14, 25], [16, 1.2], [22, 18], [23, 1.2], [30, 1.2]];
+  let PR = null;
+  function loadAt(t){
+    const sc = Math.min(1, P.nmax * P.ilim * 0.85 / 100);
+    let v = SEG[0][1];
+    for (let i = 0; i < SEG.length - 1; i++) if (t >= SEG[i][0] && t < SEG[i + 1][0]) v = SEG[i][1];
+    const wob = 1 + 0.08 * Math.sin(t * 7.3) + 0.05 * Math.sin(t * 17.1);
+    return Math.max(0.3, v * sc * wob);
+  }
+  function buildProfile(){
+    const K = 600, t = [], il = [], nb = [], lb = [], lf = [];
+    let eB = 0, eF = 0;
+    for (let j = 0; j <= K; j++){
+      const tt = TT * j / K, I = loadAt(tt), b = best(I);
+      const all = buckLoss(P, P.nmax, I, false);
+      t.push(tt); il.push(I); nb.push(b.key === 'dcm' ? 0.5 : b.N); lb.push(b.tot.total); lf.push(all.tot.total);
+      if (j){ eB += b.tot.total * TT / K; eF += all.tot.total * TT / K; }
+    }
+    PR = {t, il, nb, lb, lf, eB, eF};
+    const xo = {W:760, l:52, r:44, t:22, b:26, x:[0, TT], xt:[0, 5, 10, 15, 20, 25, 30], xlab:'t (s)'};
+    const imx = Math.max(...il) * 1.15;
+    const c = chart($('cProf'), Object.assign({H:220, y:[0, imx], yf:v => fx(v, 0), ylab:'A'}, xo));
+    c.area(t.map((x, i) => [x, il[i]]), 0, {fill:'var(--accent)', opacity:.15});
+    c.line(t.map((x, i) => [x, il[i]]), {stroke:'var(--accent)'});
+    const yN = n => n / P.nmax * imx * 0.95;
+    const step = []; t.forEach((x, i) => { if (i) step.push([x, yN(nb[i - 1])]); step.push([x, yN(nb[i])]); });
+    c.line(step, {stroke:'var(--p2)', 'stroke-width':2.4});
+    for (let n = 1; n <= P.nmax; n++) svgEl('text', {x:760 - 40, y:c.Y(yN(n)) + 4, class:'tick', fill:'var(--p2)'}, $('cProf'), n + ' 相');
+    PR.cur1 = c.vline(0, {class:'cursor'}); PR.X = c.X;
+    const lm = Math.max(...lf) * 1.1;
+    const c2 = chart($('cLoss'), Object.assign({H:200, y:[0, lm], yf:v => fx(v, 1), ylab:'W'}, xo));
+    c2.line(t.map((x, i) => [x, lf[i]]), {stroke:'var(--warn)', 'stroke-width':2});
+    c2.line(t.map((x, i) => [x, lb[i]]), {stroke:'var(--ok)', 'stroke-width':2.4});
+    PR.cur2 = c2.vline(0, {class:'cursor'});
+    $('lamps').innerHTML = Array.from({length:P.nmax}, (_, k) => `<div class="lamp" style="--c:${PH(k)}">${k + 1}</div>`).join('');
+  }
+  let tNow = 8, playing = !REDUCED, last = 0;
+  function paint(){
+    if (!PR) return;
+    const I = loadAt(tNow), b = best(I), all = buckLoss(P, P.nmax, I, false), ps = psOf(b);
+    [...$('lamps').children].forEach((el, k) => { el.className = 'lamp' + (k < b.N ? (b.key === 'dcm' ? ' dcm' : ' on') : ''); });
+    $('psChip').textContent = ps; $('psChip').style.setProperty('--c', PSC[ps]);
+    const c = (lab, val, sub, col) => `<div style="--c:${col}"><span>${lab}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+    $('animRes').innerHTML = c('此刻負載', fx(I, 1) + ' A', b.label, 'var(--accent)') +
+      c('此刻損耗', fx(b.tot.total, 2) + ' W', `全相 ${fx(all.tot.total, 2)} W`, 'var(--ok)') +
+      c('30 秒能耗', fx(PR.eB, 1) + ' J', `全相 ${fx(PR.eF, 1)} J（省 ${fx((1 - PR.eB / PR.eF) * 100, 0)}%）`, 'var(--p5)');
+    [PR.cur1, PR.cur2].forEach(l => { const x = PR.X(tNow); l.setAttribute('x1', x); l.setAttribute('x2', x); });
+    $('scrub').value = Math.round(tNow / TT * 1000); $('tRead').textContent = fx(tNow, 1) + ' s';
+  }
+  function loop(ts){
+    if (playing){ const dt = last ? (ts - last) / 1000 : 0; tNow = (tNow + dt * 1.5) % TT; paint(); }
+    last = ts; requestAnimationFrame(loop);
+  }
+  $('btnPlay').addEventListener('click', () => { playing = !playing; $('btnPlay').textContent = playing ? '❚❚ 暫停 Pause' : '▶ 播放 Play'; });
+  if (!playing) $('btnPlay').textContent = '▶ 播放 Play';
+  $('scrub').addEventListener('input', e => { tNow = e.target.value / 1000 * TT; paint(); });
+
+  quiz($('quiz'), [
+    {q:'負載只有 2 A 時，4 相全開的主要損耗來源是？', opts:['導通損耗', '每一相的閘極驅動、Coss 與靜態損耗', '電感飽和'], a:1,
+     why:'電流很小時導通損耗幾乎為零，但 4 相每個週期都在切換，Q<sub>g</sub>·V·f、½C<sub>oss</sub>V²f 與靜態損耗乘上 4。看第 3 區的損耗組成。'},
+    {q:'PS2 和 PS1 的差別是？', opts:['PS2 多開一相', 'PS2 仍是單相，但改用二極體模擬（DCM），輕載時開關頻率跟著降低', 'PS2 會關掉 VRM'], a:1,
+     why:'PS1 只留一相強制 PWM；PS2 把那一相改成二極體模擬模式，電感電流降到零就停，等效開關頻率隨負載下降（定義來源：Richtek AN051）。'},
+    {q:'為什麼控制器加相要快、減相要慢？', opts:['減相會損壞 MOSFET', '負載突增時相數不夠會造成電壓下衝；在門檻附近快速來回切換也會產生擾動', '加相比較省電'], a:1,
+     why:'加相慢一步，缺的電流只能由輸出電容供應，電壓就會掉出 Load-line（站 05）。減相加上遲滯可避免在門檻附近來回切換。'}
+  ]);
+
+  draw();
+  requestAnimationFrame(loop);
+  abbrify($('abbrTable'));
+})();

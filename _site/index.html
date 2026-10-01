@@ -17,7 +17,7 @@
 </head>
 <body>
 <div class="wrap">
-<nav class="series" aria-label="系列 Series"><span class="lab">系列 Series</span><span class="cur" aria-current="page"><b>HOME</b>系列首頁</span><span class="soon"><b>01 WHY</b>為什麼要多相 · 準備中</span><a href="ripple.html"><b>02 RIPPLE</b>紋波抵消</a><span class="soon"><b>03 POWER STAGE</b>DrMOS／SPS · 準備中</span><span class="soon"><b>04 CURRENT SENSE</b>電流偵測與均流 · 準備中</span><a href="load-line.html"><b>05 LOAD-LINE</b>負載暫態</a><span class="soon"><b>06 PHASE SHEDDING</b>效率與切相 · 準備中</span><span class="soon"><b>07 IMVP9 / SVID</b>Intel 規範 · 準備中</span><span class="soon"><b>08 PHASE COUNT</b>45W／28W 幾相 · 準備中</span><span class="soon"><b>09 LAYOUT</b>佈局與除錯 · 準備中</span><a href="https://dcdc-topology-series.vercel.app/buck.html" target="_blank" rel="noopener"><b>↗ BUCK</b>前置：同步降壓</a></nav>
+<nav class="series" aria-label="系列 Series"><span class="lab">系列 Series</span><span class="cur" aria-current="page"><b>HOME</b>系列首頁</span><a href="why-multiphase.html"><b>01 WHY</b>為什麼要多相</a><a href="ripple.html"><b>02 RIPPLE</b>紋波抵消</a><span class="soon"><b>03 POWER STAGE</b>DrMOS／SPS · 準備中</span><span class="soon"><b>04 CURRENT SENSE</b>電流偵測與均流 · 準備中</span><a href="load-line.html"><b>05 LOAD-LINE</b>負載暫態</a><a href="phase-shedding.html"><b>06 PHASE SHEDDING</b>效率與切相</a><span class="soon"><b>07 IMVP9 / SVID</b>Intel 規範 · 準備中</span><span class="soon"><b>08 PHASE COUNT</b>45W／28W 幾相 · 準備中</span><span class="soon"><b>09 LAYOUT</b>佈局與除錯 · 準備中</span><a href="https://dcdc-topology-series.vercel.app/buck.html" target="_blank" rel="noopener"><b>↗ BUCK</b>前置：同步降壓</a></nav>
 <header>
 <div>
 <div class="eyebrow">Multi-phase VRM Series · HOME</div>
@@ -57,7 +57,7 @@ const S = [
 ['08', '45W／28W 要幾相', 'Phase count', '', '由 Icc_max 與每相熱電流推出相數與控制器配置。', ['相數計算器']],
 ['09', '佈局與量測除錯', 'Layout & debug', '', '對稱佈局、熱迴路、遠端感測、量測方法與故障對照。', ['佈局熱點圖', '檢查清單']]
 ];
-const BUILT = {"ripple.html": "VRM-02-RIPPLE_互動教學.html", "load-line.html": "VRM-05-LOADLINE_互動教學.html"};   // site file -> single-file name, filled in by build.py
+const BUILT = {"why-multiphase.html": "VRM-01-WHY_互動教學.html", "ripple.html": "VRM-02-RIPPLE_互動教學.html", "load-line.html": "VRM-05-LOADLINE_互動教學.html", "phase-shedding.html": "VRM-06-SHED_互動教學.html"};   // site file -> single-file name, filled in by build.py
 const single = /_互動教學\.html$/.test(decodeURIComponent(location.pathname));
 S.forEach(s => { s[3] = BUILT[s[3]] !== undefined ? (single ? BUILT[s[3]] : s[3]) : ''; });
 const cols = ['var(--p1)', 'var(--p2)', 'var(--p3)', 'var(--p4)', 'var(--p5)', 'var(--p6)', 'var(--p7)', 'var(--p8)', 'var(--accent)'];

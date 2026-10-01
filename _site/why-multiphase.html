@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>為什麼需要多相供電</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="assets/series.css">
+<style>
+.chart-wrap svg#cVI,.chart-wrap svg#cTot,.chart-wrap svg#cPer{min-width:380px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav class="series" aria-label="系列 Series"><span class="lab">系列 Series</span><a href="./"><b>HOME</b>系列首頁</a><span class="cur" aria-current="page"><b>01 WHY</b>為什麼要多相</span><a href="ripple.html"><b>02 RIPPLE</b>紋波抵消</a><span class="soon"><b>03 POWER STAGE</b>DrMOS／SPS · 準備中</span><span class="soon"><b>04 CURRENT SENSE</b>電流偵測與均流 · 準備中</span><a href="load-line.html"><b>05 LOAD-LINE</b>負載暫態</a><a href="phase-shedding.html"><b>06 PHASE SHEDDING</b>效率與切相</a><span class="soon"><b>07 IMVP9 / SVID</b>Intel 規範 · 準備中</span><span class="soon"><b>08 PHASE COUNT</b>45W／28W 幾相 · 準備中</span><span class="soon"><b>09 LAYOUT</b>佈局與除錯 · 準備中</span><a href="https://dcdc-topology-series.vercel.app/buck.html" target="_blank" rel="noopener"><b>↗ BUCK</b>前置：同步降壓</a></nav>
+<header>
+<div>
+<div class="eyebrow">Multi-phase VRM Series · 01</div>
+<h1>為什麼需要多相<small>Low voltage × high current · conduction ∝ I²/N · switching ∝ N</small></h1>
+</div>
+<div class="chip-dc">P <span>=</span> V × I</div>
+<p class="lede">同樣 100 W，12 V 只要 8 A，CPU 核心的 1 V 卻要 100 A。導通損耗和電流的<b>平方</b>成正比，一顆 MOSFET、一顆電感扛不住，也散不掉熱。這一頁用一套同步 Buck（降壓轉換器）損耗模型，算出不同相數下的總損耗、每相損耗與效率，看出為什麼 CPU 供電要拆成好幾相，以及相數也不是越多越好。
+<span class="en">The same 100 W is 8 A at 12 V but 100 A at a 1 V core. Conduction loss grows with I², so one MOSFET and one inductor cannot carry or dissipate it. A buck loss model shows total loss, per-phase loss and efficiency versus the number of phases — and why more is not always better.</span></p>
+</header>
+<section class="panel" aria-labelledby="h-param">
+<h2 id="h-param"><span class="step">1</span>設定 <span class="en">Inputs</span></h2>
+<div class="grid-2">
+<div>
+<div class="grp-title">負載與相數 Load &amp; phases</div><div class="params compact" id="pLoad"></div>
+<div class="grp-title">散熱限制 Thermal limit</div><div class="params compact" id="pTherm"></div>
+</div>
+<div>
+<div class="grp-title">功率級元件（DrMOS 示意值）Power stage</div><div class="params compact" id="pDev"></div>
+</div>
+</div>
+<div class="presets" id="presets"><span>範例 Presets：</span></div>
+</section>
+<div class="grid-2">
+<section class="panel" aria-labelledby="h-res">
+<h2 id="h-res"><span class="step">2</span>結果 <span class="en">Result</span></h2>
+<div class="badges" id="badges"></div>
+<div class="bigres" id="bigres"></div>
+</section>
+<section class="panel" aria-labelledby="h-vi">
+<h2 id="h-vi"><span class="step">3</span>電壓越低、電流越大 <span class="en">Same power, lower voltage → higher current</span></h2>
+<div class="chart-wrap"><svg id="cVI" class="chart" role="img" aria-label="同功率下電流對電壓曲線"></svg></div>
+<p class="lede" style="margin-top:6px">曲線是 I = P／V。從 12 V 降到 1 V 電流變 12 倍；同一條銅箔、同一顆 MOSFET 的 I²R 損耗就變 144 倍。
+<span class="en">12 V → 1 V multiplies current by 12 and I²R loss by 144.</span></p>
+</section>
+</div>
+<section class="panel" aria-labelledby="h-n">
+<h2 id="h-n"><span class="step">4</span>相數掃描 <span class="en">Sweep N = 1 … 8 at the same load</span></h2>
+<div class="grid-2">
+<div>
+<div class="chart-title">總損耗組成 <span class="en">Total loss breakdown (W)</span></div>
+<div class="chart-wrap"><svg id="cTot" class="chart" role="img" aria-label="各相數的總損耗堆疊長條圖"></svg></div>
+<div class="mini-legend" id="legTot"></div>
+</div>
+<div>
+<div class="chart-title">每相損耗與散熱上限 <span class="en">Loss per phase vs thermal limit (W)</span></div>
+<div class="chart-wrap"><svg id="cPer" class="chart" role="img" aria-label="各相數的每相損耗與散熱上限"></svg></div>
+<div class="mini-legend"><span><i style="color:var(--ok)"></i>每相損耗 ≤ 上限</span><span><i style="color:var(--warn)"></i>超過上限</span><span><i class="dash" style="color:var(--warn)"></i>每相允許損耗</span></div>
+</div>
+</div>
+<p class="lede" style="margin-top:10px">導通損耗總和 ∝ I²／N，相數越多越小；切換損耗看的是每次切換時的電流，總和幾乎不隨 N 變；閘極驅動、Coss 與靜態損耗則是<b>每多一相就多一份</b>。所以總損耗先降後持平甚至回升，而每相損耗必須壓在散熱允許值以下——這兩條線一起決定相數。
+<span class="en">Conduction falls as I²/N, switching stays roughly constant, and gate, Coss and quiescent losses grow with N. Total loss flattens or rises again, while per-phase loss must stay below the thermal limit.</span></p>
+</section>
+<section class="panel" aria-labelledby="h-single">
+<h2 id="h-single"><span class="step">5</span>那用單相跑更高頻呢？ <span class="en">Why not one phase at N × fsw?</span></h2>
+<div class="scroll-x"><table class="tbl" id="tblSingle"></table></div>
+<p class="lede" style="margin-top:10px">想讓單相得到和 N 相一樣的漣波頻率，開關頻率要提高 N 倍。但 12 V → 1 V 的佔空比只有約 8%，導通時間很快就逼近控制器與驅動器的最小導通時間（常見數十 ns）；同時所有電流仍擠在同一顆 MOSFET 上，切換與導通損耗一起暴增。這就是為什麼「多相交錯」比「單相高頻」划算。
+<span class="en">Matching the ripple frequency with one phase means N times the switching frequency: the on-time approaches the minimum on-time and all the current still flows through one device.</span></p>
+</section>
+<section class="panel" aria-labelledby="h-calc">
+<h2 id="h-calc"><span class="step">6</span>即時計算 <span class="en">Live calculation (selected N)</span></h2>
+<div class="formulas" id="formulas"></div>
+</section>
+<section class="panel" aria-labelledby="h-notes">
+<h2 id="h-notes"><span class="step">7</span>重點與常見誤解 <span class="en">Key points and misconceptions</span></h2>
+<div class="note-key"><span><span class="src ver">已查證</span> 有公開資料佐證</span><span><span class="src add">補充</span> 一般電源設計知識整理</span></div>
+<div class="ngroups">
+<div class="ngroup" style="--c:var(--p1)">
+<h3>為什麼要拆相 <span class="en">Why split</span></h3>
+<ul>
+<li><b>導通損耗 ∝ I²／N</b><span class="src add">補充</span><br>N 相各分 I／N，每相損耗 (I／N)²R，乘回 N 相合計 I²R／N。4 相把導通損耗降到 1／4，而且分散在 4 個位置。<span class="en">Total conduction loss is I²R/N and it is spread over N spots.</span></li>
+<li><b>元件電流有上限</b><span class="src add">補充</span><br>電感飽和電流、DrMOS 封裝電流、PCB 銅箔載流都有極限；筆電 DrMOS 標稱 40–70 A，實際長時間每相常只抓 20–30 A。<span class="en">Inductor saturation, package and copper limits cap the current per phase.</span></li>
+<li><b>熱要分散</b><span class="src add">補充</span><br>同樣的總損耗，分散在多個位置，每個點的溫升低得多，也不會形成局部熱點。<span class="en">Spreading the same loss lowers each hotspot.</span></li>
+</ul>
+</div>
+<div class="ngroup" style="--c:var(--ok)">
+<h3>實際平台電流 <span class="en">Real platform currents</span></h3>
+<ul>
+<li><b>Alder Lake-P／Raptor Lake-P</b><span class="src ver">已查證</span><br>Core（IA）軌 Icc_max：45W 為 120–160 A、28W 為 85–109 A、15W 為 80 A；內顯（GT）55 A。來源：coreboot 的 Intel 參考 VR 設定。<span class="en">From coreboot's Alder Lake VR defaults.</span></li>
+<li><b>相數怎麼抓</b><span class="src add">補充</span><br>Icc_max ÷ 每相熱設計電流（筆電常抓 20–30 A）→ 160 A 約 6 相、109 A 約 4–5 相、GT 55 A 約 2 相。站 08 會把這個計算做成計算器。<span class="en">Icc_max ÷ 20–30 A per phase.</span></li>
+</ul>
+</div>
+<div class="ngroup" style="--c:var(--p4)">
+<h3>常見誤解 <span class="en">Misconceptions</span></h3>
+<ul>
+<li><b>「相數越多效率越高」</b><span class="src add">補充</span><br>重載時多相確實降低導通損耗，但輕載時每一相的閘極驅動、Coss 與靜態損耗都在白白消耗——這就是站 06 相數切換（Phase Shedding）要解決的問題。<span class="en">At light load the extra phases only add fixed losses (station 06).</span></li>
+<li><b>「DrMOS 標 60 A 就能每相跑 60 A」</b><span class="src add">補充</span><br>標稱值是理想散熱下的極限；筆電狹窄空間與有限風道下，效率與溫升的甜蜜點通常在額定的 30–50%。<span class="en">Ratings assume ideal cooling; notebooks run 30–50% of rating.</span></li>
+</ul>
+</div>
+</div>
+</section>
+<section class="panel" aria-labelledby="h-quiz">
+<h2 id="h-quiz"><span class="step">8</span>小測驗 <span class="en">Quick check</span></h2>
+<div class="quiz" id="quiz"></div>
+</section>
+<section class="panel" aria-labelledby="h-abbr">
+<h2 id="h-abbr"><span class="step">A</span>縮寫對照 <span class="en">Abbreviations used on this page — hover any dotted-underlined term for its full name</span></h2>
+<div class="scroll-x" id="abbrTable"></div>
+</section>
+<footer>
+計算模型：每相為同步 Buck、連續導通，D = V<sub>out</sub>／V<sub>in</sub>；導通損耗 = I<sub>rms</sub>²·[D·R<sub>HS</sub> + (1 − D)·R<sub>LS</sub> + DCR]，I<sub>rms</sub>² = I<sub>ph</sub>² + ΔI<sub>L</sub>²／12；切換損耗 = ½·V<sub>in</sub>·(I<sub>off</sub> + I<sub>on</sub>)·t<sub>sw</sub>·f<sub>sw</sub>（I<sub>off</sub>、I<sub>on</sub> 為關斷與導通瞬間的電感電流，負電流時導通損耗視為零）；閘極 Q<sub>g</sub>·V<sub>drv</sub>·f<sub>sw</sub>；Coss ½·C<sub>oss</sub>·V<sub>in</sub>²·f<sub>sw</sub>；死區 0.7 V·t<sub>dt</sub>·f<sub>sw</sub>·(兩次換向電流)；每相靜態損耗固定。元件參數為筆電 DrMOS 的示意值，未含 PCB 銅箔損耗與溫度對 R<sub>DS(on)</sub> 的影響；每相允許損耗依散熱設計而定。平台電流來源：coreboot <a href="https://github.com/coreboot/coreboot/blob/main/src/soc/intel/alderlake/vr_config.c" target="_blank" rel="noopener">vr_config.c</a>。
+<br>Model: CCM synchronous buck per phase with conduction, switching overlap, gate, Coss, dead-time and quiescent losses; device values are illustrative.
+</footer>
+</div>
+<script src="assets/common.js"></script>
+<script>
+(function(){
+const P = {pw:100, vout:1.0, vin:12, n:4, plim:2.5, fsw:600, L:150, rhs:3, rls:1, dcr:0.2, tsw:3, qg:30, vdrv:5, coss:1500, tdt:5, pq:0.03};
+const G = {
+pLoad:[
+{k:'pw', zh:'核心功率', en:'Pcore', min:10, max:300, step:1, fmt:v => v.toFixed(0) + ' W'},
+{k:'vout', zh:'核心電壓', en:'Vcore', min:0.6, max:1.5, step:0.01, fmt:v => v.toFixed(2) + ' V'},
+{k:'vin', zh:'輸入電壓', en:'Vin', min:5, max:20, step:0.5, fmt:v => v.toFixed(1) + ' V'},
+{k:'n', zh:'相數', en:'Phases N', min:1, max:8, step:1, fmt:v => v.toFixed(0) + ' 相'}
+],
+pTherm:[
+{k:'plim', zh:'每相允許損耗', en:'Loss limit per phase', min:0.5, max:6, step:0.1, fmt:v => v.toFixed(1) + ' W'}
+],
+pDev:[
+{k:'fsw', zh:'每相開關頻率', en:'fsw', min:200, max:1500, step:50, fmt:v => v.toFixed(0) + ' kHz'},
+{k:'L', zh:'每相電感', en:'L', min:47, max:470, step:1, fmt:v => v.toFixed(0) + ' nH'},
+{k:'rhs', zh:'高側 R<sub>DS(on)</sub>', en:'RHS', min:0.5, max:10, step:0.1, fmt:v => v.toFixed(1) + ' mΩ'},
+{k:'rls', zh:'低側 R<sub>DS(on)</sub>', en:'RLS', min:0.3, max:5, step:0.05, fmt:v => v.toFixed(2) + ' mΩ'},
+{k:'dcr', zh:'電感 DCR', en:'DCR', min:0.05, max:1, step:0.01, fmt:v => v.toFixed(2) + ' mΩ'},
+{k:'tsw', zh:'切換時間（每邊）', en:'tsw', min:1, max:15, step:0.5, fmt:v => v.toFixed(1) + ' ns'},
+{k:'qg', zh:'閘極電荷（高＋低側）', en:'Qg', min:5, max:100, step:1, fmt:v => v.toFixed(0) + ' nC'},
+{k:'coss', zh:'Coss', en:'Output capacitance', min:200, max:5000, step:50, fmt:v => v.toFixed(0) + ' pF'},
+{k:'tdt', zh:'死區時間', en:'Dead time', min:0, max:30, step:1, fmt:v => v.toFixed(0) + ' ns'},
+{k:'pq', zh:'每相靜態損耗', en:'Quiescent', min:0, max:0.2, step:0.01, fmt:v => (v * 1000).toFixed(0) + ' mW'}
+]
+};
+const syncs = Object.keys(G).map(id => sliders(G[id], P, $(id), () => { clamp(); draw(); }));
+const syncAll = () => syncs.forEach(s => s());
+function clamp(){ if (P.vout > 0.9 * P.vin) P.vout = +(0.9 * P.vin).toFixed(2); }
+const presets = [
+{label:'28W 級筆電 Core（≈ 109 A）', v:{pw:109, vout:1.0, n:4}},
+{label:'45W 級筆電 Core（≈ 160 A）', v:{pw:160, vout:1.0, n:6}},
+{label:'單相硬扛 100 A', v:{pw:100, vout:1.0, n:1}},
+{label:'100 W @ 1.2 V', v:{pw:100, vout:1.2, n:4}},
+{label:'100 W @ 0.8 V', v:{pw:100, vout:0.8, n:4}},
+{label:'桌機／伺服器 270 W @ 0.9 V', v:{pw:270, vout:0.9, n:8, plim:4}}
+];
+presets.forEach(p => {
+const b = document.createElement('button'); b.type = 'button'; b.textContent = p.label;
+b.addEventListener('click', () => { Object.assign(P, p.v); clamp(); syncAll(); draw(); });
+$('presets').appendChild(b);
+});
+$('legTot').innerHTML = LOSS_PARTS.map(x => `<span><i style="color:${x[3]}"></i>${x[1]}</span>`).join('');
+let R, S;
+function draw(){
+const I = P.pw / P.vout;
+S = [1, 2, 3, 4, 5, 6, 7, 8].map(n => buckLoss(P, n, I));
+R = S[P.n - 1];
+const okN = S.find(s => s.ph.total <= P.plim);
+const best = S.reduce((a, b) => b.tot.total < a.tot.total ? b : a);
+cards(I, okN, best); drawVI(I); drawTot(okN); drawPer(); drawSingle(I); drawFormulas();
+}
+function cards(I, okN, best){
+const c = (lab, val, sub, col) => `<div style="--c:${col || 'var(--accent)'}"><span>${lab}</span><b>${val}</b>${sub ? `<small>${sub}</small>` : ''}</div>`;
+$('bigres').innerHTML =
+c('核心電流', fx(I, 1) + ' A', `同功率在 12 V 只要 ${fx(P.pw / 12, 1)} A`) +
+c('每相電流', fx(R.Iph, 1) + ' A', `漣波 ΔI<sub>L</sub> ${fx(R.dI, 1)} A`, 'var(--p2)') +
+c(`${P.n} 相總損耗`, fx(R.tot.total, 2) + ' W', `導通 ${fx(R.tot.cond, 2)} W｜切換 ${fx(R.tot.sw, 2)} W`, 'var(--p1)') +
+c('效率', fx(R.eff * 100, 1) + ' %', `輸出 ${fx(R.pout, 0)} W`, 'var(--ok)') +
+c('每相損耗', fx(R.ph.total, 2) + ' W', `上限 ${fx(P.plim, 1)} W`, R.ph.total <= P.plim ? 'var(--ok)' : 'var(--warn)') +
+c('散熱需要的最少相數', okN ? okN.N + ' 相' : '> 8 相', okN ? `每相 ${fx(okN.ph.total, 2)} W` : '8 相仍超過上限', 'var(--p3)') +
+c('總損耗最低的相數', best.N + ' 相', `${fx(best.tot.total, 2)} W｜效率 ${fx(best.eff * 100, 1)} %`, 'var(--p5)');
+const b = [];
+b.push(R.ph.total <= P.plim ? `<span class="badge ok">${P.n} 相：每相損耗在散熱上限內</span>` : `<span class="badge warn">${P.n} 相：每相損耗超過上限 ${fx(R.ph.total / P.plim, 1)} 倍</span>`);
+if (R.ton * 1e9 < 50) b.push(`<span class="badge warn">導通時間只有 ${fx(R.ton * 1e9, 0)} ns，接近最小導通時間</span>`);
+if (R.Iph > 40) b.push('<span class="badge warn">每相超過 40 A：已接近筆電 DrMOS 的實用範圍</span>');
+$('badges').innerHTML = b.join('');
+}
+function drawVI(I){
+const c = chart($('cVI'), {W:520, H:280, l:52, r:14, t:22, b:28, x:[0.5, 12], y:[0, Math.max(60, P.pw / 0.5 * 1.02)], xt:[0.5, 1, 2, 3.3, 5, 12], logx:true, xf:v => v, xlab:'V（對數）', ylab:'I (A)', yf:v => fx(v, 0)});
+const pts = []; for (let j = 0; j <= 200; j++){ const v = 0.5 * Math.pow(24, j / 200); pts.push([v, P.pw / v]); }
+c.line(pts, {stroke:'var(--accent)', 'stroke-width':2.6});
+[[P.vout, 'var(--warn)', `${fx(P.vout, 2)} V → ${fx(I, 0)} A`], [12, 'var(--ok)', `12 V → ${fx(P.pw / 12, 1)} A`]].forEach(([v, col, s]) => {
+svgEl('circle', {cx:c.X(v), cy:c.Y(P.pw / v), r:6, fill:col}, $('cVI'));
+c.text(v, P.pw / v, s, {class:'tag-t', dx:v > 6 ? -8 : 10, dy:-8, 'text-anchor':v > 6 ? 'end' : 'start'});
+});
+}
+function bars(svgId, vals, opts){
+const ymax = Math.max(...vals.map(v => v.total)) * 1.12 || 1;
+const c = chart($(svgId), {W:520, H:280, l:48, r:12, t:22, b:28, x:[0.4, 8.6], xt:[1, 2, 3, 4, 5, 6, 7, 8], xf:v => v + ' 相', y:[0, opts.ymax || ymax], yf:v => fx(v, v < 10 ? 1 : 0), ylab:'W'});
+return c;
+}
+function drawTot(okN){
+const c = bars('cTot', S.map(s => ({total:s.tot.total})), {});
+S.forEach(s => {
+let acc = 0;
+LOSS_PARTS.forEach(([k, , , col]) => {
+const v = s.tot[k];
+svgEl('rect', {x:c.X(s.N) - 18, y:c.Y(acc + v), width:36, height:Math.max(0, c.Y(acc) - c.Y(acc + v)), fill:col, opacity:s.N === P.n ? 1 : .55}, $('cTot'));
+acc += v;
+});
+c.text(s.N, acc, fx(acc, 1), {class:'tag-t', 'text-anchor':'middle', dy:-4});
+});
+}
+function drawPer(){
+const ymax = Math.max(P.plim * 1.4, Math.min(S[0].ph.total, P.plim * 6)) ;
+const c = bars('cPer', S.map(s => ({total:s.ph.total})), {ymax});
+S.forEach(s => {
+const v = Math.min(s.ph.total, ymax);
+svgEl('rect', {x:c.X(s.N) - 18, y:c.Y(v), width:36, height:c.Y(0) - c.Y(v), fill:s.ph.total <= P.plim ? 'var(--ok)' : 'var(--warn)', opacity:s.N === P.n ? 1 : .55}, $('cPer'));
+c.text(s.N, v, (s.ph.total > ymax ? '↑' : '') + fx(s.ph.total, 1), {class:'tag-t', 'text-anchor':'middle', dy:-4});
+});
+c.hline(P.plim, {class:'ref', stroke:'var(--warn)'});
+}
+function drawSingle(I){
+let h = '<thead><tr><th>對照 N 相</th><th class="m">單相需要的 f<sub>sw</sub></th><th class="m">導通時間 t<sub>on</sub></th><th class="m">單相總損耗</th><th class="m">效率</th><th class="m">N 相交錯（每相 ' + P.fsw + ' kHz）</th></tr></thead><tbody>';
+[1, 2, 4, 6, 8].forEach(n => {
+const q = Object.assign({}, P, {fsw:P.fsw * n});
+const s1 = buckLoss(q, 1, I), sn = S[n - 1];
+h += `<tr${n === P.n ? ' class="hl"' : ''}><td>${n} 相的漣波頻率</td><td class="m">${fx(P.fsw * n / 1000, 2)} MHz</td><td class="m"${s1.ton * 1e9 < 40 ? ' style="color:var(--warn)"' : ''}>${fx(s1.ton * 1e9, 0)} ns</td><td class="m">${fx(s1.tot.total, 1)} W</td><td class="m">${fx(s1.eff * 100, 1)} %</td><td class="m">${fx(sn.tot.total, 1)} W｜${fx(sn.eff * 100, 1)} %</td></tr>`;
+});
+$('tblSingle').innerHTML = h + '</tbody>';
+}
+function drawFormulas(){
+const row = (name, en, eq, res) => `<div class="f-row"><div class="name">${name}<span class="en">${en}</span></div><div class="eq">${eq}</div><div class="res">${res}</div></div>`;
+const Rp = (R.D * P.rhs + (1 - R.D) * P.rls + P.dcr);
+$('formulas').innerHTML =
+row('核心電流', 'Core current', `I = P ／ V = ${P.pw} W ／ ${fx(P.vout, 2)} V`, fx(R.I, 1) + ' A') +
+row('每相電流與漣波', 'Per phase', `I<sub>ph</sub> = I ／ N = ${fx(R.I, 1)} ／ ${P.n}；ΔI<sub>L</sub> = (V<sub>in</sub> − V<sub>out</sub>)·D ／ (L·f<sub>sw</sub>)`, `${fx(R.Iph, 1)} A｜${fx(R.dI, 1)} A`) +
+row('導通路徑電阻', 'Path resistance', `D·R<sub>HS</sub> + (1 − D)·R<sub>LS</sub> + DCR = ${fx(R.D, 3)}×${P.rhs} + ${fx(1 - R.D, 3)}×${P.rls} + ${P.dcr}`, fx(Rp, 3) + ' mΩ') +
+row('導通損耗（每相）', 'Conduction', `(I<sub>ph</sub>² + ΔI<sub>L</sub>²／12) × ${fx(Rp, 3)} mΩ`, fx(R.ph.cond, 3) + ' W') +
+row('切換損耗（每相）', 'Switching', `½ × ${P.vin} V × (${fx(R.Iph + R.dI / 2, 1)} + ${fx(Math.max(0, R.Iph - R.dI / 2), 1)}) A × ${P.tsw} ns × ${P.fsw} kHz`, fx(R.ph.sw, 3) + ' W') +
+row('閘極＋Coss＋死區＋靜態（每相）', 'Fixed-ish losses', `Q<sub>g</sub>·V<sub>drv</sub>·f + ½·C<sub>oss</sub>·V<sub>in</sub>²·f + 死區 + 靜態`, fx(R.ph.gate + R.ph.coss + R.ph.dead + R.ph.q, 3) + ' W') +
+row('效率', 'Efficiency', `P<sub>out</sub> ／ (P<sub>out</sub> + N × 每相損耗) = ${fx(R.pout, 1)} ／ (${fx(R.pout, 1)} + ${fx(R.tot.total, 2)})`, fx(R.eff * 100, 2) + ' %');
+}
+quiz($('quiz'), [
+{q:'同樣 100 W，核心電壓從 1.2 V 降到 0.8 V，同一條路徑的導通損耗大約變成幾倍？', opts:['1.5 倍', '2.25 倍', '3 倍'], a:1,
+why:'電流變 1.2／0.8 = 1.5 倍，I²R 變 1.5² = 2.25 倍。按「100 W @ 1.2 V」與「100 W @ 0.8 V」兩個範例比較總損耗。'},
+{q:'從 4 相增加到 8 相，哪一項損耗的總和會明顯增加？', opts:['導通損耗', '閘極驅動與 Coss 損耗', '切換損耗'], a:1,
+why:'閘極驅動 Q<sub>g</sub>·V·f 與 Coss ½CV²f 每一相都有，與電流無關，所以相數加倍就加倍；導通損耗反而下降，切換損耗總和大致不變。'},
+{q:'用單相跑 4 倍頻率來取代 4 相交錯，最主要的問題是？', opts:['漣波頻率不夠高', '導通時間太短、而且所有電流與損耗仍集中在一顆元件', '輸出電壓會變高'], a:1,
+why:'12 V → 1 V 時 D 約 8%，2.4 MHz 下導通時間只剩約 35 ns；切換損耗跟著頻率變 4 倍，又全部集中在同一顆 MOSFET。看上方第 5 區的表格。'}
+]);
+draw();
+abbrify($('abbrTable'));
+})();
+</script>
+</body>
+</html>
