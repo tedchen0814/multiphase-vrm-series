@@ -55,6 +55,7 @@ def nav(current, site):
     items.append(f'<a href="{DCDC}buck.html" target="_blank" rel="noopener"><b>↗ BUCK</b>前置：同步降壓</a>')
     items.append(f'<a href="{DCDC}" target="_blank" rel="noopener"><b>↗ DC-DC</b>拓撲系列</a>')
     items.append('<a href="https://poe-pd-series.vercel.app/" target="_blank" rel="noopener"><b>↗ PoE PD</b>受電端系列</a>')
+    items.append('<a href="https://power-amp-series.vercel.app/" target="_blank" rel="noopener"><b>↗ 功率放大器</b>Class A–D</a>')
     return "".join(items)
 
 
