@@ -59,8 +59,8 @@ V = VID <span>−</span> I·R<sub>LL</sub>
     <h2 id="h-z"><span class="step">5</span>輸出阻抗 <span class="en">Output impedance |Z<sub>out</sub>(f)| with AVP — target is a flat R<sub>LL</sub></span></h2>
     <div class="chart-wrap"><svg id="cZ" class="chart" role="img" aria-label="輸出阻抗對頻率"></svg></div>
     <div class="mini-legend"><span><i style="color:var(--ink)"></i>|Z<sub>out</sub>| 合成</span><span><i class="dash" style="color:var(--band)"></i>目標 R<sub>LL</sub></span><span><i style="color:var(--p3)"></i>VRM 迴路</span><span><i style="color:var(--p2)"></i>聚合物電容</span><span><i style="color:var(--p1)"></i>MLCC</span></div>
-    <p class="lede" style="margin-top:8px">只要 |Z<sub>out</sub>| 在每個頻率都不超過 R<sub>LL</sub>，任何形狀的負載電流都會讓電壓沿著 Load-line 走，不會額外凸出去（AC load-line）。曲線右側往上翹是電容的 ESL：在數 MHz 以上，板上電容已經來不及，要靠 Socket 背面腔體 MLCC、封裝電容與晶片上的電容接手（灰色區域本頁未模擬）。
-      <span class="en">If |Zout| never exceeds RLL, any load waveform follows the load-line. The rise on the right is capacitor ESL; above a few MHz, cavity, package and die capacitance take over (grey area not modelled).</span></p>
+    <p class="lede" style="margin-top:8px">在小訊號、線性範圍內（電感與控制器未飽和、未碰到限流，且只看本頁有建模的頻段），只要 |Z<sub>out</sub>| 在每個頻率都不超過 R<sub>LL</sub>，任何形狀的負載電流都會讓電壓沿著 Load-line 走，不會額外凸出去（AC load-line）。大訊號暫態、電感飽和或控制器輸出飽和時，這個保證不成立，要另外用時域暫態量測確認。曲線右側往上翹是電容的 ESL：在數 MHz 以上，板上電容已經來不及，要靠 Socket 背面腔體 MLCC、封裝電容與晶片上的電容接手（灰色區域本頁未模擬）。
+      <span class="en">Within the small-signal, linear range (no inductor or controller saturation, no current limit, modelled band only), if |Zout| never exceeds RLL, any load waveform follows the load-line; large-signal transients must be verified in the time domain. The rise on the right is capacitor ESL; above a few MHz, cavity, package and die capacitance take over (grey area not modelled).</span></p>
   </section>
 
   <section class="panel" aria-labelledby="h-tier">

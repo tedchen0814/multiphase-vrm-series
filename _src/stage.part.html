@@ -41,8 +41,8 @@ V <span>=</span> L·di/dt
         <div class="mini-legend"><span><i style="color:var(--on)"></i>SW 節點電壓</span><span><i class="dash" style="color:var(--warn)"></i>MOSFET 耐壓</span><span><i class="dash" style="color:var(--muted)"></i>耐壓 80%（常見降額）</span></div>
       </div>
     </div>
-    <p class="lede" style="margin-top:10px">高側導通時，低側體二極體的反向恢復電流 I<sub>rr</sub> 會先在迴路電感裡多存一份能量，二極體一關斷就全部倒進開關節點電容，額外突波約 I<sub>rr</sub>·√(L／C)——這就是迴路電感越大突波越高的主因。寄生電感與低側 MOSFET 的輸出電容形成 LC 諧振：振鈴頻率 f = 1／(2π√(L·C))，常在數百 MHz，是輻射 EMI（Electromagnetic Interference，電磁干擾）的主要來源。切換越快（t<sub>r</sub> 越短）激發越強；迴路電感越小，突波越低、頻率越高也越容易被濾掉。
-      <span class="en">Loop inductance and the low-side output capacitance resonate at hundreds of MHz. Faster edges excite more ringing; smaller loops reduce it.</span></p>
+    <p class="lede" style="margin-top:10px">高側導通時，低側體二極體的反向恢復電流 I<sub>rr</sub> 會先在迴路電感裡多存一份能量，二極體一關斷就全部倒進開關節點電容，額外突波約 I<sub>rr</sub>·√(L／C)——這就是迴路電感越大突波越高的主因。寄生電感與低側 MOSFET 的輸出電容形成 LC 諧振：振鈴頻率 f = 1／(2π√(L·C))，常在數百 MHz，是輻射 EMI（Electromagnetic Interference，電磁干擾）的主要來源。切換越快（t<sub>r</sub> 越短）激發越強；縮小迴路面積與電感，可以降低突波能量與迴路輻射。但振鈴頻率會跟著升高，高頻不一定比較好濾，也可能更容易經共模路徑或結構輻射出去——濾波與 EMI 結果仍要依實際頻譜、共模路徑與佈局量測驗證。
+      <span class="en">Loop inductance and the low-side output capacitance resonate at hundreds of MHz. Faster edges excite more ringing; a smaller loop lowers the overshoot energy, but the higher ring frequency is not automatically easier to filter — verify EMI by measurement.</span></p>
   </section>
 
   <section class="panel" aria-labelledby="h-cmp">

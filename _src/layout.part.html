@@ -66,7 +66,7 @@ Layout <span>→</span> Debug
           <tr><td>SW 節點振鈴</td><td>短接地彈簧探棒，貼近低側 MOSFET 源極（PGND）量；不要用長接地夾</td><td>峰值是否超過 MOSFET 耐壓 80%；振鈴頻率與阻尼</td><td>03</td></tr>
           <tr><td>相電流平衡</td><td>讀控制器各相 IMON，或在電感上用電流探棒</td><td>各相差異是否在目標內（例如 ±10%）</td><td>04</td></tr>
           <tr><td>Load-line 與暫態</td><td>Intel VR 測試工具（VRTT 類）或主動負載，在 VCC_SENSE／VSS_SENSE 差分量</td><td>DC 斜率是否等於 R<sub>LL</sub>；加載下衝、卸載過衝是否在容差內</td><td>05</td></tr>
-          <tr><td>輸出漣波</td><td>VCC_SENSE 差分量，頻寬限制 20 MHz</td><td>漣波頻率應為 N × f<sub>sw</sub>；只有 (N − 1) 或出現 f<sub>sw</sub> 成分表示有相沒在工作</td><td>02</td></tr>
+          <tr><td>輸出漣波</td><td>VCC_SENSE 差分量，頻寬限制 20 MHz</td><td>先確認當下 PS 狀態與運作相數 N<sub>active</sub>：漣波主頻應為 N<sub>active</sub> × f<sub>sw</sub>。切相後頻率降低是正常行為；若與運作相數對不上、或出現明顯 f<sub>sw</sub> 成分，再逐相量 SW 節點確認</td><td>02</td></tr>
           <tr><td>效率與切相</td><td>電子負載掃電流，量輸入／輸出功率；同時記錄 PS 狀態與運作相數</td><td>切相門檻附近效率是否平順、切相瞬間電壓是否在容差內</td><td>06</td></tr>
           <tr><td>熱</td><td>紅外線熱像，滿載與 PL2 長時間</td><td>各相溫度是否一致；最熱點在電感還是功率級</td><td>01、04</td></tr>
         </tbody>
@@ -82,7 +82,7 @@ Layout <span>→</span> Debug
         <tbody>
           <tr><td>高負載當機、藍屏</td><td>下衝超出 load-line 容差；R<sub>LL</sub> 設錯；遠端感測接錯或被雜訊干擾</td><td>負載階躍時量 VCC_SENSE；確認感測線接到 CPU 專用腳位</td></tr>
           <tr><td>某一相特別燙</td><td>均流失效、DCR 感測 RC 錯、該相走線電阻小、時序差</td><td>IMON 讀值、熱像、檢查 RC 與 NTC 位置</td></tr>
-          <tr><td>漣波頻率只有 (N − 1) × f<sub>sw</sub></td><td>某相沒在工作（功率級損壞或 PWM 斷線）</td><td>逐相量 SW 節點波形</td></tr>
+          <tr><td>漣波頻率與預期運作相數對不上</td><td>先排除正常切相（PS1／PS2 或控制器依負載自動減相時，頻率本來就會變）；排除後才懷疑某相沒在工作（功率級損壞或 PWM 斷線）。注意：某相失效時頻譜不一定剛好變成 (N − 1) × f<sub>sw</sub>，因為剩下各相的相位間隔不再均勻</td><td>讀 SVID／控制器回報的 PS 狀態與運作相數，再逐相量 SW 節點波形</td></tr>
           <tr><td>輕載效率差、待機耗電高</td><td>沒進入 PS1／PS2；DCM 被關閉；切相門檻設定錯</td><td>SVID 指令紀錄、控制器設定</td></tr>
           <tr><td>EMI 超標</td><td>熱迴路太大、SW 銅箔過大、第二層地平面被切開</td><td>近場探棒定位；檢查輸入 MLCC 位置與疊層</td></tr>
           <tr><td>開機失敗或 VR_READY 不起來</td><td>SVID 通訊失敗（上拉、參考地、雜訊）；OCP 誤觸發</td><td>用示波器看 SVID 三條線；檢查 OCP 設定與電流感測</td></tr>
